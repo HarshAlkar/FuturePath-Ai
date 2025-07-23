@@ -51,7 +51,7 @@ const LoginSignupComponent = () => {
           setUser(response.user);
           setSuccess('Login successful! Redirecting...');
           setTimeout(() => {
-            navigate('/dashboard');
+            navigate('/main-dashboard');
           }, 1000);
         }
       } else {
@@ -67,7 +67,7 @@ const LoginSignupComponent = () => {
           setUser(response.user);
           setSuccess('Account created successfully! Redirecting...');
           setTimeout(() => {
-            navigate('/dashboard');
+            navigate('/main-dashboard');
           }, 1000);
         }
       }
