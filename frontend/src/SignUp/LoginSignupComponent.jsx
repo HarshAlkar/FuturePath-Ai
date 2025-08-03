@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import bgImage from '../assets/body_bg.svg';
-import { authAPI, setAuthToken, setUser } from '../services/api';
+import authService from '../services/authService';
 
 const LoginSignupComponent = () => {
   const [signInMode, setSignInMode] = useState(true);
@@ -41,38 +41,21 @@ const LoginSignupComponent = () => {
     try {
       if (signInMode) {
         // Login
-        const response = await authAPI.login({
-          email: formData.email,
-          password: formData.password
-        });
-
-        if (response.success) {
-          setAuthToken(response.token);
-          setUser(response.user);
-          setSuccess('Login successful! Redirecting...');
-          setTimeout(() => {
-            navigate('/main-dashboard');
-          }, 1000);
-        }
+        const response = await authService.login(formData.email, formData.password);
+        setSuccess('Login successful! Redirecting...');
+        setTimeout(() => {
+          navigate('/main-dashboard');
+        }, 1000);
       } else {
         // Signup
-        const response = await authAPI.signup({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password
-        });
-
-        if (response.success) {
-          setAuthToken(response.token);
-          setUser(response.user);
-          setSuccess('Account created successfully! Redirecting...');
-          setTimeout(() => {
-            navigate('/main-dashboard');
-          }, 1000);
-        }
+        const response = await authService.register(formData.name, formData.email, formData.password);
+        setSuccess('Account created successfully! Redirecting...');
+        setTimeout(() => {
+          navigate('/main-dashboard');
+        }, 1000);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'An error occurred. Please try again.');
+      setError(err.message || 'An error occurred. Please try again.');
     } finally {
       setLoading(false);
     }

@@ -1,89 +1,79 @@
-# FinPilot Backend
+# Backend API for FinPilot
 
-A Node.js/Express backend for the FinPilot application with user authentication.
+## Setup Instructions
+
+1. Install dependencies:
+```bash
+npm install
+```
+
+2. Set up environment variables:
+Create a `.env` file in the backend directory with:
+```
+PORT=5000
+JWT_SECRET=your-secret-key-change-in-production
+MONGODB_URI=mongodb://localhost:27017/finpilot
+OPENAI_API_KEY=your-openai-api-key-here
+```
+
+3. Get an OpenAI API key:
+- Visit https://platform.openai.com/
+- Create an account and get your API key
+- Add it to the `.env` file
+
+4. Start the server:
+```bash
+npm start
+```
 
 ## Features
 
-- User registration and login
-- JWT-based authentication
-- Password hashing with bcrypt
-- Input validation
-- CORS enabled for frontend integration
-- File-based JSON database (for development)
-
-## Setup
-
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Create a `.env` file (optional):
-   ```bash
-   JWT_SECRET=your-super-secret-key-here
-   PORT=5000
-   ```
-
-4. Start the server:
-   ```bash
-   # Development mode (with auto-restart)
-   npm run dev
-   
-   # Production mode
-   npm start
-   ```
-
-The server will start on `http://localhost:5000`
+- User authentication (JWT)
+- Transaction management
+- Goal management
+- **AI-powered financial plan generation** (NEW!)
+  - Personalized plans based on goal details and transaction history
+  - Uses OpenAI GPT-3.5-turbo for intelligent recommendations
+  - Fallback plan generation if AI is unavailable
 
 ## API Endpoints
 
 ### Authentication
+- `POST /api/register` - User registration
+- `POST /api/login` - User login
+- `GET /api/profile` - Get user profile
+- `PUT /api/profile` - Update user profile
 
-- `POST /api/signup` - Register a new user
-- `POST /api/login` - Login user
-- `GET /api/profile` - Get user profile (protected route)
-- `GET /api/health` - Health check
+### Transactions
+- `GET /api/transactions` - Get user transactions
+- `POST /api/transactions` - Create transaction
+- `PUT /api/transactions/:id` - Update transaction
+- `DELETE /api/transactions/:id` - Delete transaction
+- `GET /api/transactions/stats` - Get transaction statistics
 
-### Request/Response Examples
+### Goals
+- `GET /api/goals` - Get user goals
+- `POST /api/goals` - Create goal
+- `PUT /api/goals/:id` - Update goal
+- `DELETE /api/goals/:id` - Delete goal
+- `POST /api/goals/:id/plan` - Generate AI plan for goal (NEW!)
 
-#### Signup
-```json
-POST /api/signup
-{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "password": "password123"
-}
-```
+## AI Plan Generation
 
-#### Login
-```json
-POST /api/login
-{
-  "email": "john@example.com",
-  "password": "password123"
-}
-```
+The AI plan generation endpoint (`POST /api/goals/:id/plan`) provides:
 
-#### Profile (requires Authorization header)
-```bash
-GET /api/profile
-Authorization: Bearer <jwt-token>
-```
+1. **Personalized Analysis**: Uses your transaction history and goal details
+2. **Smart Recommendations**: Monthly savings targets, spending adjustments
+3. **Milestone Tracking**: Clear checkpoints to monitor progress
+4. **Actionable Tips**: Practical advice for staying on track
+5. **Alternative Strategies**: Backup plans if needed
 
-## Data Storage
+The AI considers:
+- Your current financial situation
+- Recent spending patterns
+- Goal timeline and amount
+- Progress made so far
+- Available monthly savings
 
-User data is stored in `data/users.json` file. In production, consider using a proper database like MongoDB or PostgreSQL.
-
-## Security Features
-
-- Password hashing with bcrypt
-- JWT token authentication
-- Input validation and sanitization
-- CORS configuration
-- Error handling 
+## Health Check
+- `GET /api/health` - Server status 
