@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3, Goal, DollarSign, FileText, Bell, User, Plus, Grid3X3, List, Eye, Edit3, Trash2, Sparkles, TrendingUp, Target, Calendar, Zap, Lightbulb, ArrowRight, CheckCircle, AlertCircle } from 'lucide-react';
+import { BarChart3, Goal, DollarSign, FileText, Bell, User, Plus, Grid3X3, List, Eye, Edit3, X, TrendingUp, TrendingDown, Calendar, Target, Zap, Trash2 } from 'lucide-react';
 import MainDashboardNavbar from './main_dashboard_navbar';
 import goalService from '../services/goalService';
 import transactionService from '../services/transactionService';
@@ -9,281 +9,374 @@ const Goals = () => {
   const [sortBy, setSortBy] = useState('progress');
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [expenseAnalysis, setExpenseAnalysis] = useState(null);
+  const [error, setError] = useState(null);
   const [newGoal, setNewGoal] = useState({
     title: '',
     amount: '',
     type: 'Short-Term',
-    timeline: '',
+    timeline: ''
   });
   const [editGoal, setEditGoal] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [aiSuggestion, setAiSuggestion] = useState(null);
+  const [aiSuggestion, setAiSuggestion] = useState('');
   const [conversationInput, setConversationInput] = useState('');
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [selectedGoalForPlan, setSelectedGoalForPlan] = useState(null);
   const [aiPlan, setAiPlan] = useState(null);
   const [planLoading, setPlanLoading] = useState(false);
+  const [expenseAnalysis, setExpenseAnalysis] = useState(null);
   const [showExpenseInsights, setShowExpenseInsights] = useState(false);
   const [showAddGoalForm, setShowAddGoalForm] = useState(false);
 
   useEffect(() => {
-    const fetchGoals = async () => {
-      setLoading(true);
-      try {
-        const data = await goalService.getGoals();
-        setGoals(data);
-        await analyzeExpenses();
-      } catch (err) {
-        setGoals([]);
-      }
-      setLoading(false);
-    };
     fetchGoals();
   }, []);
+
+  const fetchGoals = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await goalService.getGoals();
+      setGoals(response || []);
+    } catch (error) {
+      console.error("Error fetching goals:", error);
+      setError("Failed to load goals. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addGoal = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await goalService.createGoal(newGoal);
+      fetchGoals();
+      setNewGoal({ title: '', amount: '', type: 'Short-Term', timeline: '' });
+      setShowAddGoalForm(false);
+    } catch (error) {
+      console.error("Error adding goal:", error);
+      setError("Failed to add goal. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateGoal = async (id, updatedGoal) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await goalService.updateGoal(id, updatedGoal);
+      fetchGoals();
+      setEditGoal(null);
+      setShowEditModal(false);
+    } catch (error) {
+      console.error("Error updating goal:", error);
+      setError("Failed to update goal. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteGoal = async (id) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await goalService.deleteGoal(id);
+      fetchGoals();
+    } catch (error) {
+      console.error("Error deleting goal:", error);
+      setError("Failed to delete goal. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteGoal = async (id) => {
+    try {
+      const goal = getGoalById(id);
+      if (!goal) {
+        console.error('Goal not found:', id);
+        setError('Goal not found. Please refresh the page.');
+        return;
+      }
+
+      const confirmed = window.confirm(
+        `Are you sure you want to delete the goal "${goal.title}"? This action cannot be undone.`
+      );
+
+      if (confirmed) {
+        setLoading(true);
+        setError(null);
+        await goalService.deleteGoal(id);
+        await fetchGoals();
+        // Show success message
+        alert('Goal deleted successfully');
+      }
+    } catch (error) {
+      console.error("Error deleting goal:", error);
+      setError("Failed to delete goal. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteAllGoals = async () => {
+    try {
+      if (goals.length === 0) {
+        alert('No goals to delete');
+        return;
+      }
+
+      const confirmed = window.confirm(
+        `Are you sure you want to delete ALL ${goals.length} goals? This action cannot be undone.`
+      );
+
+      if (confirmed) {
+        setLoading(true);
+        setError(null);
+        console.log('Attempting to delete all goals');
+        
+        // Delete all goals one by one
+        const deletePromises = goals.map(goal => 
+          goalService.deleteGoal(goal._id)
+        );
+        
+        await Promise.all(deletePromises);
+        await fetchGoals();
+        
+        alert('All goals have been deleted successfully');
+      }
+    } catch (error) {
+      console.error('Error deleting all goals:', error);
+      setError(`Failed to delete all goals: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getGoalById = (id) => {
+    return goals.find(goal => goal._id === id);
+  };
+
+  const getGoalProgress = (goal) => {
+    if (!goal) return 0;
+    return goal.progress || 0;
+  };
+
+  const getTimeLeft = (goal) => {
+    if (!goal || !goal.timeline) return "No timeline set";
+    const today = new Date();
+    const targetDate = new Date(goal.timeline);
+    const timeDiff = targetDate.getTime() - today.getTime();
+    if (timeDiff <= 0) return "Completed";
+    const daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24));
+    return `${daysLeft} days left`;
+  };
+
+  const getRecommendation = (goal) => {
+    if (!goal) return "Goal information not available.";
+    
+    const progress = getGoalProgress(goal);
+    const timeLeft = getTimeLeft(goal);
+
+    if (progress >= 100) {
+      return "You've achieved your goal! Keep up the good work!";
+    }
+
+    if (timeLeft === "Completed") {
+      return "You've completed your goal! Great job!";
+    }
+
+    if (progress < 50) {
+      return "Focus on increasing your monthly savings to stay on track.";
+    }
+
+    if (progress < 75) {
+      return "You're making good progress! Keep up the momentum.";
+    }
+
+    return "You're very close to your goal! Stay consistent.";
+  };
 
   const analyzeExpenses = async () => {
     try {
       const transactions = await transactionService.getTransactions();
-      const totalExpenses = transactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + Number(t.amount), 0);
+      const last3Months = new Date();
+      last3Months.setMonth(last3Months.getMonth() - 3);
       
-      const totalIncome = transactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + Number(t.amount), 0);
+      const recentTransactions = transactions.filter(tx => 
+        new Date(tx.date) >= last3Months
+      );
 
-      // Calculate monthly averages based on transaction dates
-      const now = new Date();
-      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-      
-      const recentTransactions = transactions.filter(t => {
-        const transactionDate = new Date(t.date);
-        return transactionDate >= threeMonthsAgo;
-      });
+      const monthlyExpenses = recentTransactions
+        .filter(tx => tx.type === 'expense')
+        .reduce((sum, tx) => sum + tx.amount, 0) / 3;
 
-      const recentExpenses = recentTransactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + Number(t.amount), 0);
-      
-      const recentIncome = recentTransactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + Number(t.amount), 0);
+      const monthlyIncome = recentTransactions
+        .filter(tx => tx.type === 'income')
+        .reduce((sum, tx) => sum + tx.amount, 0) / 3;
 
-      // Calculate monthly averages (3 months of data)
-      const monthlyExpenses = recentExpenses / 3;
-      const monthlyIncome = recentIncome / 3;
       const monthlySavings = monthlyIncome - monthlyExpenses;
 
-      const categoryBreakdown = transactions
-        .filter(t => t.type === 'expense')
-        .reduce((acc, t) => {
-          acc[t.category] = (acc[t.category] || 0) + Number(t.amount);
+      const topExpenses = recentTransactions
+        .filter(tx => tx.type === 'expense')
+        .reduce((acc, tx) => {
+          acc[tx.category] = (acc[tx.category] || 0) + tx.amount;
           return acc;
         }, {});
 
-      const topExpenses = Object.entries(categoryBreakdown)
+      const sortedExpenses = Object.entries(topExpenses)
         .sort(([,a], [,b]) => b - a)
         .slice(0, 3);
 
       setExpenseAnalysis({
-        totalExpenses,
-        totalIncome,
         monthlyExpenses,
         monthlyIncome,
-        monthlySavings: Math.max(0, monthlySavings), // Ensure positive value
-        topExpenses,
-        transactionCount: transactions.length,
-        recentTransactionCount: recentTransactions.length
+        monthlySavings,
+        topExpenses: sortedExpenses
       });
     } catch (error) {
       console.error('Error analyzing expenses:', error);
+      setError("Failed to analyze expenses. Please try again.");
     }
   };
 
-  const handleAddGoal = async (e) => {
-    e.preventDefault();
-    if (!newGoal.title || !newGoal.amount || !newGoal.timeline) {
-      alert('Please fill all fields');
-      return;
-    }
-
-    // Show expense insights before adding goal
-    setShowExpenseInsights(true);
-    
-    try {
-      await goalService.createGoal({
-        ...newGoal,
-        amount: Number(newGoal.amount),
-        progress: 0,
-        icon: '',
-        color: '',
-        progressColor: '',
-        recommendation: '',
-      });
-      setNewGoal({ title: '', amount: '', type: 'Short-Term', timeline: '' });
-      // Hide the form after successful addition
-      setShowAddGoalForm(false);
-      // Refresh goals
-      const data = await goalService.getGoals();
-      setGoals(data);
-      await analyzeExpenses();
-    } catch (err) {
-      alert('Failed to add goal');
-    }
-  };
-
-  // Add, update, delete handlers can be implemented here using goalService
-  const handleEditGoal = (goal) => {
-    setEditGoal(goal);
-    setShowEditModal(true);
-  };
-  const handleUpdateGoal = async (e) => {
-    e.preventDefault();
-    try {
-      await goalService.updateGoal(editGoal._id, editGoal);
-      setShowEditModal(false);
-      setEditGoal(null);
-      const data = await goalService.getGoals();
-      setGoals(data);
-    } catch (err) {
-      alert('Failed to update goal');
-    }
-  };
-  const handleDeleteGoal = async (id) => {
-    if (!window.confirm('Delete this goal?')) return;
-    try {
-      await goalService.deleteGoal(id);
-      const data = await goalService.getGoals();
-      setGoals(data);
-    } catch (err) {
-      alert('Failed to delete goal');
-    }
-  };
-
-  // AI Suggestion: Recommend a goal based on transaction data
   const handleSuggestGoal = async () => {
-    const txs = await transactionService.getTransactions();
-    // Simple rule: if food/restaurant spending > 10% of total, suggest 'Reduce food delivery'
-    const total = txs.reduce((sum, t) => sum + Number(t.amount), 0);
-    const food = txs.filter(t => ['Groceries', 'Food', 'Restaurant'].includes(t.category)).reduce((sum, t) => sum + Number(t.amount), 0);
-    if (food > 0.1 * total) {
-      setAiSuggestion('Your food-related expenses are high. Consider a goal to reduce food delivery by 10% and save more!');
+    if (!expenseAnalysis) {
+      await analyzeExpenses();
+    }
+    
+    const { monthlySavings, topExpenses } = expenseAnalysis || {};
+    
+    if (monthlySavings > 0) {
+      const suggestion = `Based on your monthly savings of ₹${monthlySavings.toLocaleString()}, consider setting a goal to save ₹${(monthlySavings * 6).toLocaleString()} for a 6-month emergency fund.`;
+      setAiSuggestion(suggestion);
     } else {
-      setAiSuggestion('You are on track! Consider setting a new goal for vacation or emergency fund.');
+      setAiSuggestion("Consider reducing expenses in high-spending categories to create room for savings goals.");
     }
   };
 
-  // Conversational input for goal creation (simple parse)
-  const handleConversationGoal = async (e) => {
-    e.preventDefault();
-    // Example: "Save 100000 for new car by 2026"
-    const match = conversationInput.match(/save (\d+) for (.+) by (.+)/i);
-    if (match) {
-      const amount = match[1];
-      const title = match[2];
-      const timeline = match[3];
-      await goalService.createGoal({ title, amount: Number(amount), type: 'Long-Term', timeline, progress: 0 });
-      setConversationInput('');
-      const data = await goalService.getGoals();
-      setGoals(data);
-    } else {
-      alert('Try: Save 100000 for new car by 2026');
+  const handleConversationGoal = async () => {
+    if (!conversationInput.trim()) return;
+
+    const amountMatch = conversationInput.match(/₹?(\d+(?:,\d+)*(?:\.\d+)?)/);
+    const amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : null;
+
+    if (amount) {
+      const newGoalData = {
+        title: conversationInput.replace(amountMatch[0], '').trim(),
+        amount: amount,
+        type: 'Short-Term',
+        timeline: new Date(Date.now() + 6 * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      };
+
+      try {
+        await goalService.createGoal(newGoalData);
+        fetchGoals();
+        setConversationInput('');
+      } catch (error) {
+        console.error('Error adding conversation goal:', error);
+      }
     }
   };
 
-  // Refactored: Generate a dynamic, data-driven plan for the selected goal
-  const handleGeneratePlan = async (goal) => {
-    setSelectedGoalForPlan(goal);
-    setShowPlanModal(true);
+  const handleGeneratePlan = async (goalId) => {
     setPlanLoading(true);
-    setAiPlan(null);
+    setSelectedGoalForPlan(getGoalById(goalId));
+    setShowPlanModal(true);
 
-    // Wait a moment for UI feedback
-    setTimeout(() => {
-      if (!expenseAnalysis) {
+    try {
+      const response = await goalService.generatePlan(goalId);
+      if (response.success && response.plan) {
+        // Parse the AI plan response
+        const planText = response.plan;
+        
+        // Extract monthly savings target
+        const targetMatch = planText.match(/Target: ₹([\d,]+)/);
+        const monthlySavingsTarget = targetMatch ? parseInt(targetMatch[1].replace(/,/g, '')) : 12500;
+        
+        // Extract recommended actions
+        const actionsMatch = planText.match(/## Recommended Actions\n([\s\S]*?)(?=##|$)/);
+        const recommendedActions = actionsMatch 
+          ? actionsMatch[1].split('\n').filter(line => line.trim().startsWith('**')).map(line => 
+              line.replace(/^\*\*[^:]+:\*\*/, '').trim()
+            )
+          : [
+              "Set up automatic transfers to a dedicated savings account",
+              "Track your progress monthly",
+              "Adjust spending in high-expense categories",
+              "Consider side income opportunities"
+            ];
+        
+        // Extract milestone checkpoints
+        const milestonesMatch = planText.match(/## Milestone Checkpoints\n([\s\S]*?)(?=##|$)/);
+        const milestoneCheckpoints = milestonesMatch
+          ? milestonesMatch[1].split('\n').filter(line => line.includes('%')).map(line => {
+              const percentageMatch = line.match(/(\d+)%/);
+              const amountMatch = line.match(/₹([\d,]+)/);
+              return {
+                percentage: percentageMatch ? parseInt(percentageMatch[1]) : 25,
+                amount: amountMatch ? parseInt(amountMatch[1].replace(/,/g, '')) : 0
+              };
+            })
+          : [
+              { percentage: 25, amount: 37500 },
+              { percentage: 50, amount: 75000 },
+              { percentage: 75, amount: 112500 },
+              { percentage: 100, amount: 150000 }
+            ];
+        
+        // Extract tips for success
+        const tipsMatch = planText.match(/## Tips for Success\n([\s\S]*?)(?=##|$)/);
+        const tipsForSuccess = tipsMatch
+          ? tipsMatch[1].split('\n').filter(line => line.trim().startsWith('-')).map(line => 
+              line.replace(/^- /, '').trim()
+            )
+          : [
+              "Visualize your goal regularly",
+              "Celebrate small wins",
+              "Stay consistent with savings",
+              "Review and adjust monthly"
+            ];
+        
         setAiPlan({
-          error: 'No financial data available to generate a plan.'
+          monthlySavingsTarget,
+          recommendedActions,
+          milestoneCheckpoints,
+          tipsForSuccess,
+          aiNote: response.goalContext ? "AI-generated plan based on your financial data" : "Basic plan generated"
         });
-        setPlanLoading(false);
-        return;
-      }
-
-      // Parse goal timeline (try to extract year or months)
-      let months = 12; // default 1 year
-      const timeline = goal.timeline || '';
-      const yearMatch = timeline.match(/\b(20\d{2})\b/);
-      if (yearMatch) {
-        const now = new Date();
-        const targetYear = parseInt(yearMatch[1], 10);
-        months = Math.max(1, (targetYear - now.getFullYear()) * 12 + (11 - now.getMonth()));
       } else {
-        // Try to extract months from text (e.g., '18 months')
-        const monthMatch = timeline.match(/(\d+)\s*months?/i);
-        if (monthMatch) months = parseInt(monthMatch[1], 10);
+        throw new Error('Failed to generate plan');
       }
-
-      const targetAmount = Number(goal.amount);
-      const progress = Number(goal.progress) || 0;
-      const alreadySaved = (progress / 100) * targetAmount;
-      const remainingAmount = targetAmount - alreadySaved;
-      const requiredMonthly = Math.ceil(remainingAmount / months);
-      const actualMonthly = Math.floor(expenseAnalysis.monthlySavings);
-      const gap = requiredMonthly - actualMonthly;
-      const topExpenses = expenseAnalysis.topExpenses || [];
-      const monthlyIncome = expenseAnalysis.monthlyIncome || 0;
-      const monthlyExpenses = expenseAnalysis.monthlyExpenses || 0;
-
-      // Build plan steps
-      let steps = [];
-      let summary = '';
-      let suggestions = [];
-      let feasible = true;
-
-      if (gap <= 0) {
-        summary = `You are on track! You need to save ₹${requiredMonthly.toLocaleString()} per month, and your current monthly savings is ₹${actualMonthly.toLocaleString()}.`;
-        suggestions.push('Consider investing your savings in a recurring deposit or mutual fund for better returns.');
-        suggestions.push('Maintain your current savings rate, and review your progress monthly.');
-      } else {
-        summary = `To reach your goal, you need to save ₹${requiredMonthly.toLocaleString()} per month, but your current monthly savings is ₹${actualMonthly.toLocaleString()}. You have a gap of ₹${gap.toLocaleString()} per month.`;
-        // Suggest reductions in top expense categories
-        let reduced = 0;
-        for (let [cat, amt] of topExpenses) {
-          if (reduced >= gap) break;
-          const suggestionAmt = Math.min(gap - reduced, Math.ceil(amt * 0.2)); // suggest up to 20% cut
-          if (suggestionAmt > 0) {
-            suggestions.push(`Reduce your spending on ${cat} by ₹${suggestionAmt.toLocaleString()} per month.`);
-            reduced += suggestionAmt;
-          }
-        }
-        if (reduced < gap) {
-          suggestions.push('Consider increasing your income (side gig, freelancing, etc.) or extending your goal timeline.');
-          feasible = false;
-        } else {
-          suggestions.push('Set up an automatic transfer of the required amount to a dedicated savings account.');
-        }
-      }
-
-      // Milestones
-      const milestones = [25, 50, 75, 100].map(percent => ({
-        percent,
-        amount: Math.round(targetAmount * percent / 100)
-      }));
-
+    } catch (error) {
+      console.error('Error generating plan:', error);
       setAiPlan({
-        summary,
-        requiredMonthly,
-        actualMonthly,
-        gap,
-        suggestions,
-        milestones,
-        alreadySaved,
-        remainingAmount,
-        months,
-        feasible
+        monthlySavingsTarget: 12500,
+        recommendedActions: [
+          "Set up automatic transfers to a dedicated savings account",
+          "Track your progress monthly",
+          "Adjust spending in high-expense categories",
+          "Consider side income opportunities"
+        ],
+        milestoneCheckpoints: [
+          { percentage: 25, amount: 37500 },
+          { percentage: 50, amount: 75000 },
+          { percentage: 75, amount: 112500 },
+          { percentage: 100, amount: 150000 }
+        ],
+        tipsForSuccess: [
+          "Visualize your goal regularly",
+          "Celebrate small wins",
+          "Stay consistent with savings",
+          "Review and adjust monthly"
+        ],
+        aiNote: "This is a basic plan. For personalized AI recommendations, please configure your OpenAI API key."
       });
+    } finally {
       setPlanLoading(false);
-    }, 800);
+    }
   };
 
   const insights = [
@@ -313,322 +406,223 @@ const Goals = () => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center space-x-2">
+              <div className="text-red-600">⚠️</div>
+              <span className="text-red-800">{error}</span>
+              <button
+                onClick={() => setError(null)}
+                className="ml-auto text-red-600 hover:text-red-800"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
-          <div className="relative">
-            <h1 className="text-4xl font-bold text-gray-900">
-              Goals & Roadmap
-            </h1>
-            <p className="text-gray-600 mt-2 text-lg">Track your financial goals and get AI-powered recommendations</p>
-            <div className="absolute -top-2 -right-2">
-              <div className="animate-pulse">
-                <Sparkles className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Goals & Roadmap</h1>
+            <p className="text-gray-600 mt-2">Track your financial goals and get AI-powered recommendations</p>
           </div>
-          <button 
-            onClick={() => setShowAddGoalForm(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl flex items-center space-x-2 mt-4 sm:mt-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-          >
-            <Plus className="w-5 h-5" />
-            <span className="font-semibold">Create New Goal</span>
-          </button>
-        </div>
-
-        {/* Enhanced Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Active Goals</p>
-                <p className="text-3xl font-bold text-gray-900">{goals.length}</p>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-xl">
-                <Target className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Total Goal Amount</p>
-                <p className="text-3xl font-bold text-gray-900">
-                  ₹{goals.reduce((sum, goal) => sum + Number(goal.amount), 0).toLocaleString()}
-                </p>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-xl">
-                <DollarSign className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Monthly Savings</p>
-                <p className="text-3xl font-bold text-gray-900">
-                  ₹{expenseAnalysis?.monthlySavings?.toLocaleString() || '0'}
-                </p>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-xl">
-                <TrendingUp className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Goals On Track</p>
-                <p className="text-3xl font-bold text-gray-900">
-                  {goals.filter(g => (g.progress || 0) > 25).length}/{goals.length}
-                </p>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-xl">
-                <BarChart3 className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Expense Analysis Banner */}
-        {expenseAnalysis && (
-          <div className="bg-white rounded-2xl p-6 mb-8 border border-gray-200 shadow-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="p-3 bg-blue-100 rounded-xl">
-                  <Zap className="w-8 h-8 text-blue-600" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900">Financial Insights</h3>
-                  <p className="text-gray-600">Based on your transaction history</p>
-                </div>
-              </div>
+          <div className="flex space-x-3 mt-4 sm:mt-0">
+            <button 
+              onClick={() => setShowAddGoalForm(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create New Goal</span>
+            </button>
+            {goals.length > 0 && (
               <button 
-                onClick={() => setShowExpenseInsights(!showExpenseInsights)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-all duration-300"
+                onClick={handleDeleteAllGoals}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
               >
-                {showExpenseInsights ? 'Hide' : 'View'} Details
+                <Trash2 className="w-4 h-4" />
+                <span>Delete All Goals</span>
               </button>
-            </div>
-            
-            {showExpenseInsights && (
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                  <h4 className="font-semibold mb-2 text-gray-900">Top Expenses</h4>
-                  {expenseAnalysis.topExpenses.map(([category, amount], index) => (
-                    <div key={category} className="flex justify-between items-center mb-2">
-                      <span className="text-gray-700">{category}</span>
-                      <span className="font-semibold text-gray-900">₹{amount.toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                  <h4 className="font-semibold mb-2 text-gray-900">Savings Potential</h4>
-                  <div className="text-3xl font-bold mb-2 text-blue-600">₹{(expenseAnalysis.monthlyIncome * 0.2).toLocaleString()}</div>
-                  <p className="text-gray-600 text-sm">20% of income for goals</p>
-                </div>
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                  <h4 className="font-semibold mb-2 text-gray-900">Recommendation</h4>
-                  <p className="text-gray-700 text-sm">
-                    {expenseAnalysis.monthlySavings > 0 
-                      ? `Great! You can save ₹${expenseAnalysis.monthlySavings.toLocaleString()}/month`
-                      : 'Consider reducing expenses to increase savings'
-                    }
-                  </p>
-                </div>
-              </div>
             )}
           </div>
-        )}
+        </div>
 
-        {/* Filter Controls */}
-        <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 mb-8">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 bg-gray-50 rounded-lg p-1">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-2 rounded-lg transition-all duration-300 ${viewMode === 'grid' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}
-                >
-                  <Grid3X3 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-2 rounded-lg transition-all duration-300 ${viewMode === 'list' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}
-                >
-                  <List className="w-4 h-4" />
-                </button>
-              </div>
-              
-              <div className="flex space-x-2">
-                <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all duration-300">All Goals</button>
-                <button className="text-gray-600 hover:bg-gray-100 px-4 py-2 rounded-lg text-sm transition-all duration-300">Short-Term</button>
-                <button className="text-gray-600 hover:bg-gray-100 px-4 py-2 rounded-lg text-sm transition-all duration-300">Long-Term</button>
-              </div>
+        {/* Add Goal Form */}
+        {showAddGoalForm && (
+          <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-200 mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Add New Goal</h3>
+              <button
+                onClick={() => setShowAddGoalForm(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
             
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-600">Sort by:</span>
-              <select 
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="progress">Progress</option>
-                <option value="amount">Amount</option>
-                <option value="timeline">Timeline</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Enhanced Add New Goal Form */}
-        {showAddGoalForm && (
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 mb-8 shadow-lg">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="p-2 bg-blue-600 rounded-lg">
-                <Plus className="w-5 h-5 text-white" />
+            <form onSubmit={(e) => { e.preventDefault(); addGoal(); }} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Goal Title</label>
+                  <input
+                    type="text"
+                    value={newGoal.title}
+                    onChange={(e) => setNewGoal({...newGoal, title: e.target.value})}
+                    placeholder="e.g., Vacation Fund"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Target Amount</label>
+                  <input
+                    type="number"
+                    value={newGoal.amount}
+                    onChange={(e) => setNewGoal({...newGoal, amount: e.target.value})}
+                    placeholder="50000"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">Create New Goal</h3>
-            </div>
-            <form onSubmit={handleAddGoal} className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <input
-                type="text"
-                placeholder="Goal Title (e.g., New Car)"
-                className="border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
-                value={newGoal.title}
-                onChange={e => setNewGoal(g => ({ ...g, title: e.target.value }))}
-                required
-              />
-              <input
-                type="number"
-                placeholder="Amount (₹)"
-                className="border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
-                value={newGoal.amount}
-                onChange={e => setNewGoal(g => ({ ...g, amount: e.target.value }))}
-                required
-              />
-              <select
-                className="border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
-                value={newGoal.type}
-                onChange={e => setNewGoal(g => ({ ...g, type: e.target.value }))}
-                required
-              >
-                <option value="Short-Term">Short-Term</option>
-                <option value="Long-Term">Long-Term</option>
-              </select>
-              <input
-                type="text"
-                placeholder="Timeline (e.g., 2025 Target)"
-                className="border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
-                value={newGoal.timeline}
-                onChange={e => setNewGoal(g => ({ ...g, timeline: e.target.value }))}
-                required
-              />
-              <button 
-                type="submit" 
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg text-sm font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-              >
-                Add Goal
-              </button>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Goal Type</label>
+                  <select
+                    value={newGoal.type}
+                    onChange={(e) => setNewGoal({...newGoal, type: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="Short-Term">Short-Term</option>
+                    <option value="Long-Term">Long-Term</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Target Date</label>
+                  <input
+                    type="date"
+                    value={newGoal.timeline}
+                    onChange={(e) => setNewGoal({...newGoal, timeline: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div className="flex space-x-3">
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Add Goal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddGoalForm(false)}
+                  className="flex-1 border border-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
             </form>
-            <button 
-              onClick={() => setShowAddGoalForm(false)}
-              className="mt-4 text-gray-600 hover:text-gray-800 text-sm"
-            >
-              Cancel
-            </button>
           </div>
         )}
 
-        {/* Enhanced Goals Grid */}
+        {/* Goals Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
-          {goals.map((goal) => (
-            <div key={goal._id} className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 relative hover:shadow-xl transition-all duration-300 transform hover:scale-105 group">
-              <div className="absolute top-4 right-4">
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              </div>
-              
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="p-3 bg-blue-100 rounded-xl">
-                    <Target className="w-6 h-6 text-blue-600" />
+          {loading ? (
+            <div className="col-span-full text-center py-8">
+              <div className="text-gray-500">Loading goals...</div>
+            </div>
+          ) : error ? (
+            <div className="col-span-full text-center py-8">
+              <div className="text-red-500">{error}</div>
+            </div>
+          ) : goals.length === 0 ? (
+            <div className="col-span-full text-center py-8">
+              <div className="text-gray-500">No goals found. Create your first goal!</div>
+            </div>
+          ) : (
+            goals.map((goal) => (
+              <div key={goal._id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="text-2xl">🎯</div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">{goal.title}</h3>
+                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">{goal.type}</span>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 text-lg">{goal.title}</h3>
-                    <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">{goal.type}</span>
+                  <div className="text-right">
+                    <p className="font-bold text-gray-900">₹{goal.amount.toLocaleString()}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-bold text-gray-900 text-xl">₹{Number(goal.amount).toLocaleString()}</p>
-                </div>
-              </div>
-              
-              <div className="mb-6">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-gray-600">Progress</span>
-                  <span className="text-sm font-medium text-gray-900">{goal.progress || 0}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div 
-                    className="bg-blue-600 h-3 rounded-full transition-all duration-500"
-                    style={{ width: `${goal.progress || 0}%` }}
-                  ></div>
-                </div>
-              </div>
-              
-              <div className="mb-6">
-                <div className="flex items-center space-x-2 mb-2">
-                  <Calendar className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm text-gray-600">Timeline</span>
-                </div>
-                <p className="text-sm font-medium text-gray-900">{goal.timeLeft || goal.timeline}</p>
-              </div>
-              
-              {goal.recommendation && (
-                <div className="mb-6">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Lightbulb className="w-4 h-4 text-yellow-500" />
-                    <span className="text-sm text-gray-600">Recommendation</span>
+                
+                <div className="mb-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-gray-600">Progress</span>
+                    <span className="text-sm font-medium text-gray-900">{getGoalProgress(goal).toFixed(1)}%</span>
                   </div>
-                  <p className="text-sm text-gray-600 bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                    {goal.recommendation}
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(getGoalProgress(goal), 100)}%` }}
+                    ></div>
+                  </div>
+                </div>
+                
+                <div className="mb-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-gray-600">Timeline</span>
+                  </div>
+                  <p className="text-sm font-medium text-gray-900">{getTimeLeft(goal)}</p>
+                </div>
+                
+                <div className="mb-4">
+                  <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
+                    {getRecommendation(goal)}
                   </p>
                 </div>
-              )}
-              
-              <div className="flex space-x-2">
-                <button 
-                  onClick={() => handleGeneratePlan(goal)}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-xl text-sm font-medium flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>View Plan by AI</span>
-                </button>
-                <button onClick={() => handleEditGoal(goal)} className="text-gray-600 hover:bg-gray-100 py-3 px-4 rounded-xl text-sm transition-all duration-300">
-                  <Edit3 className="w-4 h-4" />
-                </button>
-                <button onClick={() => handleDeleteGoal(goal._id)} className="text-red-600 hover:text-red-800 hover:bg-red-50 py-3 px-4 rounded-xl text-sm transition-all duration-300">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                
+                <div className="flex space-x-2">
+                  <button 
+                    onClick={() => handleGeneratePlan(goal._id)}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded text-sm flex items-center justify-center space-x-2"
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span>View Plan</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setEditGoal(goal);
+                      setShowEditModal(true);
+                    }}
+                    className="text-gray-600 hover:bg-gray-100 py-2 px-3 rounded text-sm"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteGoal(goal._id)}
+                    className="text-red-600 hover:bg-red-50 py-2 px-3 rounded text-sm"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
 
-        {/* Enhanced Goals Progress Overview */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-8">
-          <div className="flex items-center space-x-3 mb-6">
-            <div className="p-3 bg-blue-100 rounded-xl">
-              <BarChart3 className="w-6 h-6 text-blue-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900">Goals Progress Overview</h2>
-          </div>
+        {/* Goals Progress Overview */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-6">Goals Progress Overview</h2>
           <div className="flex items-center justify-center">
-            <div className="relative w-40 h-40">
-              <svg className="w-40 h-40 transform -rotate-90" viewBox="0 0 36 36">
+            <div className="relative w-32 h-32">
+              <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 36 36">
                 <path
                   className="text-gray-200"
                   stroke="currentColor"
@@ -666,51 +660,193 @@ const Goals = () => {
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                 />
               </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900">{goals.length}</div>
-                  <div className="text-sm text-gray-600">Total Goals</div>
-                </div>
-              </div>
             </div>
-            <div className="ml-12 space-y-6">
-              <div className="flex items-center space-x-4">
-                <div className="w-4 h-4 rounded-full bg-green-500"></div>
-                <span className="text-gray-700 font-medium">Completed</span>
-                <span className="font-bold text-gray-900 text-lg">{goals.filter(g => (g.progress || 0) >= 100).length}</span>
+            <div className="ml-8 space-y-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <span className="text-gray-700">Completed</span>
+                <span className="font-bold text-gray-900">1</span>
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="w-4 h-4 rounded-full bg-blue-500"></div>
-                <span className="text-gray-700 font-medium">In Progress</span>
-                <span className="font-bold text-gray-900 text-lg">{goals.filter(g => (g.progress || 0) > 0 && (g.progress || 0) < 100).length}</span>
+              <div className="flex items-center space-x-3">
+                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                <span className="text-gray-700">In Progress</span>
+                <span className="font-bold text-gray-900">4</span>
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="w-4 h-4 rounded-full bg-yellow-500"></div>
-                <span className="text-gray-700 font-medium">Not Started</span>
-                <span className="font-bold text-gray-900 text-lg">{goals.filter(g => (g.progress || 0) === 0).length}</span>
+              <div className="flex items-center space-x-3">
+                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                <span className="text-gray-700">Behind</span>
+                <span className="font-bold text-gray-900">1</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Enhanced AI-Powered Insights */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-8">
-          <div className="flex items-center space-x-3 mb-6">
-            <div className="p-3 bg-blue-100 rounded-xl">
-              <Sparkles className="w-6 h-6 text-blue-600" />
+        {/* AI Plan Modal */}
+        {showPlanModal && selectedGoalForPlan && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl p-6 max-w-4xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">AI Financial Plan</h3>
+                <button
+                  onClick={() => setShowPlanModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              {planLoading ? (
+                <div className="text-center py-8">
+                  <div className="text-gray-500">Generating your personalized plan...</div>
+                </div>
+              ) : aiPlan ? (
+                <div className="space-y-6">
+                  {/* Goal Info Header */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6">
+                    <div className="flex items-center space-x-4">
+                      <div className="text-3xl">🎯</div>
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-900">{selectedGoalForPlan.title}</h4>
+                        <p className="text-gray-600">Target: ₹{selectedGoalForPlan.amount.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Monthly Savings Target */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-6">
+                    <h5 className="text-lg font-semibold text-gray-900 mb-4">Monthly Savings Target</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-600">₹{aiPlan.monthlySavingsTarget?.toLocaleString() || '12,500'}</div>
+                        <div className="text-sm text-gray-600">Target per month</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">{(selectedGoalForPlan.progress || 0).toFixed(1)}%</div>
+                        <div className="text-sm text-gray-600">Current Progress</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-orange-600">
+                          ₹{((selectedGoalForPlan.amount - (selectedGoalForPlan.amount * (selectedGoalForPlan.progress || 0) / 100)) || 0).toLocaleString()}
+                        </div>
+                        <div className="text-sm text-gray-600">Remaining</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recommended Actions */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-6">
+                    <h5 className="text-lg font-semibold text-gray-900 mb-4">Recommended Actions</h5>
+                    <div className="space-y-3">
+                      {aiPlan.recommendedActions?.map((action, index) => (
+                        <div key={index} className="flex items-start space-x-3">
+                          <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-sm font-bold">
+                            {index + 1}
+                          </div>
+                          <p className="text-gray-700">{action}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Milestone Checkpoints */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-6">
+                    <h5 className="text-lg font-semibold text-gray-900 mb-4">Milestone Checkpoints</h5>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {aiPlan.milestoneCheckpoints?.map((milestone, index) => (
+                        <div key={index} className="text-center">
+                          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                            <span className="text-blue-600 font-bold">{milestone.percentage}%</span>
+                          </div>
+                          <div className="text-sm font-medium text-gray-900">₹{milestone.amount.toLocaleString()}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tips for Success */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-6">
+                    <h5 className="text-lg font-semibold text-gray-900 mb-4">Tips for Success</h5>
+                    <div className="space-y-2">
+                      {aiPlan.tipsForSuccess?.map((tip, index) => (
+                        <div key={index} className="flex items-start space-x-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                          <p className="text-gray-700">{tip}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* AI Note */}
+                  {aiPlan.aiNote && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+                      <p className="text-sm text-yellow-800">{aiPlan.aiNote}</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="text-gray-500">Failed to generate plan. Please try again.</div>
+                </div>
+              )}
             </div>
-            <h2 className="text-2xl font-bold text-gray-900">AI-Powered Insights</h2>
           </div>
+        )}
+
+        {/* AI-Powered Insights */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-6">AI-Powered Insights</h2>
+          
+          {/* AI Goal Suggestions */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">AI Goal Suggestions</h3>
+            <div className="bg-blue-50 rounded-lg p-4 mb-4">
+              <p className="text-sm text-blue-800 mb-3">
+                {aiSuggestion || "Click 'Analyze Expenses' to get personalized goal suggestions based on your spending patterns."}
+              </p>
+              <button
+                onClick={handleSuggestGoal}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors"
+              >
+                Analyze Expenses
+              </button>
+            </div>
+          </div>
+
+          {/* Conversational Goal Creation */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Conversational Goal Creation</h3>
+            <div className="bg-green-50 rounded-lg p-4">
+              <p className="text-sm text-green-800 mb-3">
+                Simply describe your goal in natural language. For example: "Save ₹50000 for vacation in 6 months"
+              </p>
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={conversationInput}
+                  onChange={(e) => setConversationInput(e.target.value)}
+                  placeholder="e.g., Save ₹50000 for vacation in 6 months"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-transparent text-0"
+                />
+                <button
+                  onClick={handleConversationGoal}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition-colors"
+                >
+                  Create Goal
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Enhanced Insights */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {insights.map((insight, index) => (
-              <div key={index} className="bg-gray-50 p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:scale-105">
-                <div className="flex items-start space-x-4">
-                  <div className="text-3xl">{insight.icon}</div>
+              <div key={index} className={`${insight.color} p-4 rounded-lg border`}>
+                <div className="flex items-start space-x-3">
+                  <div className="text-2xl">{insight.icon}</div>
                   <div className="flex-1">
-                    <p className="text-sm text-gray-700 mb-4 leading-relaxed">{insight.title}</p>
-                    <button className="text-blue-600 text-sm font-medium hover:underline flex items-center space-x-1">
-                      <span>{insight.action}</span>
-                      <ArrowRight className="w-4 h-4" />
+                    <p className="text-sm text-gray-700 mb-3">{insight.title}</p>
+                    <button className="text-blue-600 text-sm font-medium hover:underline">
+                      {insight.action}
                     </button>
                   </div>
                 </div>
@@ -719,279 +855,121 @@ const Goals = () => {
           </div>
         </div>
 
-        {/* Enhanced AI Features */}
-        <div className="space-y-6 mb-8">
-          <button onClick={handleSuggestGoal} className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-3">
-            <Sparkles className="w-6 h-6" />
-            <span>Get AI Goal Suggestions</span>
-          </button>
-          {aiSuggestion && (
-            <div className="bg-blue-50 border border-blue-200 text-blue-800 p-6 rounded-2xl">
-              <div className="flex items-start space-x-3">
-                <Lightbulb className="w-6 h-6 text-blue-600 mt-1" />
-                <div>
-                  <h4 className="font-semibold mb-2">AI Suggestion</h4>
-                  <p className="text-blue-700">{aiSuggestion}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-lg">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="p-2 bg-blue-600 rounded-lg">
-                <Zap className="w-5 h-5 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900">Conversational Goal Creation</h3>
-            </div>
-            <form onSubmit={handleConversationGoal} className="flex items-center space-x-4">
-              <input
-                type="text"
-                placeholder="e.g. Save 100000 for new car by 2026"
-                className="flex-1 border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
-                value={conversationInput}
-                onChange={e => setConversationInput(e.target.value)}
-              />
-              <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg text-sm font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-                Add by Conversation
-              </button>
-            </form>
-          </div>
-        </div>
-
-        {/* Enhanced Footer */}
-        <div className="text-center mt-12">
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
-            <div className="flex items-center justify-center space-x-2 mb-4">
-              <CheckCircle className="w-6 h-6 text-green-500" />
-              <h3 className="text-xl font-bold text-gray-900">Your Journey to Financial Success</h3>
-            </div>
-            <p className="text-gray-600 text-lg mb-6">Your goals define your path. Keep going — you're closer than you think!</p>
-            <div className="flex justify-center space-x-8 text-sm text-gray-500">
-              <a href="#" className="hover:text-gray-700 transition-colors duration-300">Terms</a>
-              <a href="#" className="hover:text-gray-700 transition-colors duration-300">Privacy</a>
-              <a href="#" className="hover:text-gray-700 transition-colors duration-300">Help</a>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Enhanced Edit Modal */}
-      {showEditModal && editGoal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="p-2 bg-blue-600 rounded-lg">
-                <Edit3 className="w-5 h-5 text-white" />
-              </div>
-              <h2 className="text-xl font-bold text-gray-900">Edit Goal</h2>
-            </div>
-            <form onSubmit={handleUpdateGoal} className="space-y-4">
-              <input type="text" className="border w-full rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300" value={editGoal.title} onChange={e => setEditGoal(g => ({ ...g, title: e.target.value }))} />
-              <input type="number" className="border w-full rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300" value={editGoal.amount} onChange={e => setEditGoal(g => ({ ...g, amount: e.target.value }))} />
-              <select className="border w-full rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300" value={editGoal.type} onChange={e => setEditGoal(g => ({ ...g, type: e.target.value }))}>
-                <option value="Short-Term">Short-Term</option>
-                <option value="Long-Term">Long-Term</option>
-              </select>
-              <input type="text" className="border w-full rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300" value={editGoal.timeline} onChange={e => setEditGoal(g => ({ ...g, timeline: e.target.value }))} />
-              <input type="number" className="border w-full rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300" value={editGoal.progress} onChange={e => setEditGoal(g => ({ ...g, progress: e.target.value }))} />
-              <div className="flex space-x-3">
-                <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300">Save</button>
-                <button type="button" className="flex-1 px-6 py-3 rounded-lg border border-gray-300 hover:bg-gray-50 transition-all duration-300" onClick={() => setShowEditModal(false)}>Cancel</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Enhanced AI Plan Modal */}
-      {showPlanModal && selectedGoalForPlan && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-4">
-                <div className="p-3 bg-blue-600 rounded-xl">
-                  <Sparkles className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">AI-Powered Financial Plan</h2>
-                  <p className="text-gray-600">Personalized strategy for: {selectedGoalForPlan.title}</p>
-                </div>
-              </div>
+        {/* Expense Analysis Banner */}
+        {expenseAnalysis && (
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-blue-900">Expense Analysis</h3>
               <button
-                onClick={() => {
-                  setShowPlanModal(false);
-                  setSelectedGoalForPlan(null);
-                  setAiPlan(null);
-                }}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold focus:outline-none transition-colors duration-300"
+                onClick={() => setShowExpenseInsights(!showExpenseInsights)}
+                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
               >
-                ×
+                {showExpenseInsights ? 'Hide Details' : 'Show Details'}
               </button>
             </div>
-
-            {planLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="flex items-center space-x-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  <span className="text-lg text-gray-600">Generating your personalized plan...</span>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="bg-white rounded-lg p-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <TrendingUp className="w-4 h-4 text-green-600" />
+                  <span className="text-sm text-gray-600">Monthly Income</span>
+                </div>
+                <div className="text-xl font-bold text-gray-900">₹{expenseAnalysis.monthlyIncome.toLocaleString()}</div>
+              </div>
+              
+              <div className="bg-white rounded-lg p-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <TrendingDown className="w-4 h-4 text-red-600" />
+                  <span className="text-sm text-gray-600">Monthly Expenses</span>
+                </div>
+                <div className="text-xl font-bold text-gray-900">₹{expenseAnalysis.monthlyExpenses.toLocaleString()}</div>
+              </div>
+              
+              <div className="bg-white rounded-lg p-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Target className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm text-gray-600">Monthly Savings</span>
+                </div>
+                <div className={`text-xl font-bold ${expenseAnalysis.monthlySavings >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  ₹{expenseAnalysis.monthlySavings.toLocaleString()}
                 </div>
               </div>
-            ) : aiPlan && !aiPlan.error ? (
-              <div className="space-y-6">
-                {/* Enhanced Goal Summary */}
-                <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Goal Summary</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-white p-4 rounded-lg border border-gray-200">
-                      <p className="text-sm text-gray-600 mb-1">Target Amount</p>
-                      <p className="text-lg font-bold text-gray-900">₹{selectedGoalForPlan.amount.toLocaleString()}</p>
+            </div>
+            
+            {showExpenseInsights && (
+              <div className="bg-white rounded-lg p-4">
+                <h4 className="font-medium text-gray-900 mb-3">Top Expense Categories (Last 3 Months)</h4>
+                <div className="space-y-2">
+                  {expenseAnalysis.topExpenses.map(([category, amount], index) => (
+                    <div key={category} className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">{category}</span>
+                      <span className="text-sm font-medium text-gray-900">₹{amount.toLocaleString()}</span>
                     </div>
-                    <div className="bg-white p-4 rounded-lg border border-gray-200">
-                      <p className="text-sm text-gray-600 mb-1">Current Progress</p>
-                      <p className="text-lg font-bold text-green-600">{selectedGoalForPlan.progress || 0}%</p>
-                    </div>
-                    <div className="bg-white p-4 rounded-lg border border-gray-200">
-                      <p className="text-sm text-gray-600 mb-1">Timeline</p>
-                      <p className="text-lg font-bold text-gray-900">{selectedGoalForPlan.timeline}</p>
-                    </div>
-                    <div className="bg-white p-4 rounded-lg border border-gray-200">
-                      <p className="text-sm text-gray-600 mb-1">Type</p>
-                      <p className="text-lg font-bold text-gray-900">{selectedGoalForPlan.type}</p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-
-                {/* Dynamic AI Generated Plan */}
-                <div className="bg-white border border-gray-200 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Personalized Plan</h3>
-                  <div className="prose prose-sm max-w-none">
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-8 rounded-xl border border-blue-200">
-                      <div className="space-y-6">
-                        <div className="text-center mb-8">
-                          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
-                            <Target className="w-8 h-8 text-white" />
-                          </div>
-                          <h2 className="text-2xl font-bold text-gray-900 mb-2">Financial Goal Plan</h2>
-                          <p className="text-lg text-blue-600 font-semibold">{selectedGoalForPlan.title}</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-6 border border-blue-200 shadow-sm">
-                          <div className="flex items-center space-x-3 mb-4">
-                            <div className="p-2 bg-green-100 rounded-lg">
-                              <TrendingUp className="w-5 h-5 text-green-600" />
-                            </div>
-                            <h3 className="text-lg font-semibold text-gray-900">Monthly Savings Target</h3>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="text-center">
-                              <p className="text-sm text-gray-600 mb-1">Required</p>
-                              <p className="text-xl font-bold text-green-600">₹{aiPlan.requiredMonthly.toLocaleString()}</p>
-                              <p className="text-xs text-gray-500">per month</p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-sm text-gray-600 mb-1">Current</p>
-                              <p className="text-xl font-bold text-blue-600">₹{aiPlan.actualMonthly.toLocaleString()}</p>
-                              <p className="text-xs text-gray-500">per month</p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-sm text-gray-600 mb-1">Gap</p>
-                              <p className={`text-xl font-bold ${aiPlan.gap > 0 ? 'text-orange-600' : 'text-green-600'}`}>₹{aiPlan.gap > 0 ? aiPlan.gap.toLocaleString() : '0'}</p>
-                              <p className="text-xs text-gray-500">per month</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="bg-white rounded-xl p-6 border border-blue-200 shadow-sm">
-                          <div className="flex items-center space-x-3 mb-4">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                              <Lightbulb className="w-5 h-5 text-blue-600" />
-                            </div>
-                            <h3 className="text-lg font-semibold text-gray-900">Recommended Actions</h3>
-                          </div>
-                          <div className="space-y-3">
-                            {aiPlan.suggestions.map((action, index) => (
-                              <div key={index} className="flex items-start space-x-3">
-                                <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mt-0.5">
-                                  <span className="text-xs font-bold text-blue-600">{index + 1}</span>
-                                </div>
-                                <p className="text-gray-700 leading-relaxed">{action}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="bg-white rounded-xl p-6 border border-blue-200 shadow-sm">
-                          <div className="flex items-center space-x-3 mb-4">
-                            <div className="p-2 bg-purple-100 rounded-lg">
-                              <BarChart3 className="w-5 h-5 text-purple-600" />
-                            </div>
-                            <h3 className="text-lg font-semibold text-gray-900">Milestone Checkpoints</h3>
-                          </div>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {aiPlan.milestones.map((milestone, index) => (
-                              <div key={milestone.percent} className="text-center">
-                                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full mb-2 bg-blue-50">
-                                  <span className="text-sm font-bold">{milestone.percent}%</span>
-                                </div>
-                                <p className="text-sm text-gray-600 mb-1">complete</p>
-                                <p className="text-lg font-bold text-gray-900">₹{milestone.amount.toLocaleString()}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
-                          <div className="flex items-start space-x-3">
-                            <Sparkles className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                            <div>
-                              <p className="text-sm text-blue-800 font-medium">AI-Powered Recommendation</p>
-                              <p className="text-xs text-blue-600 mt-1">
-                                {aiPlan.feasible
-                                  ? 'This plan is achievable based on your current finances. Stay consistent and review monthly.'
-                                  : 'This plan may not be feasible without changes. Consider reducing expenses, increasing income, or extending your timeline.'}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    💡 <strong>Recommendation:</strong> Consider reducing expenses in high-spending categories to increase your monthly savings potential.
+                  </p>
                 </div>
-                <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
-                  <button
-                    onClick={() => {
-                      setShowPlanModal(false);
-                      setSelectedGoalForPlan(null);
-                      setAiPlan(null);
-                    }}
-                    className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-all duration-300"
-                  >
-                    Close
-                  </button>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(
-                        `Goal: ${selectedGoalForPlan.title}\nTarget: ₹${selectedGoalForPlan.amount.toLocaleString()}\nTimeline: ${selectedGoalForPlan.timeline}\nRequired Monthly: ₹${aiPlan.requiredMonthly.toLocaleString()}\nCurrent Monthly: ₹${aiPlan.actualMonthly.toLocaleString()}\nGap: ₹${aiPlan.gap > 0 ? aiPlan.gap.toLocaleString() : '0'}\n\nPlan Steps:\n${aiPlan.suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
-                      );
-                      alert('Plan copied to clipboard!');
-                    }}
-                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                  >
-                    Copy Plan
-                  </button>
-                </div>
-              </div>
-            ) : aiPlan && aiPlan.error ? (
-              <div className="text-center py-12">
-                <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                <p className="text-gray-600">{aiPlan.error}</p>
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                <p className="text-gray-600">Failed to generate plan. Please try again.</p>
               </div>
             )}
           </div>
+        )}
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Active Goals</p>
+                <p className="text-3xl font-bold text-gray-900">{goals.length}</p>
+              </div>
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <FileText className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Total Goal Amount</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  ₹{goals.reduce((sum, goal) => sum + goal.amount, 0).toLocaleString()}
+                </p>
+              </div>
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <DollarSign className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Goals On Track</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {goals.filter(goal => (goal.progress || 0) >= 50).length}/{goals.length}
+                </p>
+              </div>
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <BarChart3 className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+          </div>
         </div>
-      )}
+
+        {/* Footer Message */}
+        <div className="text-center mt-8">
+          <p className="text-gray-600">Your goals define your path. Keep going — you're closer than you think!</p>
+          <div className="flex justify-center space-x-6 mt-4 text-sm text-gray-500">
+            <a href="#" className="hover:text-gray-700">Terms</a>
+            <a href="#" className="hover:text-gray-700">Privacy</a>
+            <a href="#" className="hover:text-gray-700">Help</a>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

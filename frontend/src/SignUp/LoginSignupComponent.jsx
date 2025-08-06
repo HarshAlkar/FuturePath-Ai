@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import bgImage from '../assets/body_bg.svg';
-import authService from '../services/authService';
+import { authAPI, setAuthToken, setUser } from '../services/api';
 
 const LoginSignupComponent = () => {
   const [signInMode, setSignInMode] = useState(true);
@@ -41,28 +41,49 @@ const LoginSignupComponent = () => {
     try {
       if (signInMode) {
         // Login
-        const response = await authService.login(formData.email, formData.password);
-        setSuccess('Login successful! Redirecting...');
-        setTimeout(() => {
-          navigate('/main-dashboard');
-        }, 1000);
+        const response = await authAPI.login({
+          email: formData.email,
+          password: formData.password
+        });
+
+        if (response.success) {
+          setAuthToken(response.token);
+          setUser(response.user);
+          setSuccess('Login successful! Redirecting...');
+          setTimeout(() => {
+            navigate('/dashboard');
+          }, 1000);
+        } else {
+          setError(response.message || 'Login failed. Please try again.');
+        }
       } else {
         // Signup
-        const response = await authService.register(formData.name, formData.email, formData.password);
-        setSuccess('Account created successfully! Redirecting...');
-        setTimeout(() => {
-          navigate('/main-dashboard');
-        }, 1000);
+        const response = await authAPI.signup({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password
+        });
+
+        if (response.success) {
+          setAuthToken(response.token);
+          setUser(response.user);
+          setSuccess('Account created successfully! Redirecting...');
+          setTimeout(() => {
+            navigate('/dashboard');
+          }, 1000);
+        } else {
+          setError(response.message || 'Registration failed. Please try again.');
+        }
       }
     } catch (err) {
-      setError(err.message || 'An error occurred. Please try again.');
+      setError('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4" style={{ backgroundImage: `url(${bgImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
       <div className="bg-white rounded-lg shadow-2xl overflow-hidden w-full max-w-4xl min-h-[500px] relative">
         
         {/* Error/Success Messages */}
@@ -89,6 +110,7 @@ const LoginSignupComponent = () => {
               placeholder="Name" 
               value={formData.name}
               onChange={handleInputChange}
+              required
               className="bg-gray-200 py-3 px-4 my-2 w-full rounded focus:outline-none focus:ring-2 focus:ring-green-500" 
             />
             <input 
@@ -97,6 +119,7 @@ const LoginSignupComponent = () => {
               placeholder="Email" 
               value={formData.email}
               onChange={handleInputChange}
+              required
               className="bg-gray-200 py-3 px-4 my-2 w-full rounded focus:outline-none focus:ring-2 focus:ring-green-500" 
             />
             <input 
@@ -105,6 +128,8 @@ const LoginSignupComponent = () => {
               placeholder="Password" 
               value={formData.password}
               onChange={handleInputChange}
+              required
+              minLength={6}
               className="bg-gray-200 py-3 px-4 my-2 w-full rounded focus:outline-none focus:ring-2 focus:ring-green-500" 
             />
             <button 
@@ -129,6 +154,7 @@ const LoginSignupComponent = () => {
               placeholder="Email" 
               value={formData.email}
               onChange={handleInputChange}
+              required
               className="bg-gray-200 py-3 px-4 my-2 w-full rounded focus:outline-none focus:ring-2 focus:ring-green-500" 
             />
             <input 
@@ -137,6 +163,7 @@ const LoginSignupComponent = () => {
               placeholder="Password" 
               value={formData.password}
               onChange={handleInputChange}
+              required
               className="bg-gray-200 py-3 px-4 my-2 w-full rounded focus:outline-none focus:ring-2 focus:ring-green-500" 
             />
             <a href="#" className="text-gray-600 text-sm my-4 hover:text-gray-800">Forgot your password?</a>

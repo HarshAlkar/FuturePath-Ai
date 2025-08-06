@@ -1,0 +1,265 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  /* background-color: #242424; */
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  /* background-color: #1a1a1a; */
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover {
+  border-color: #646cff;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #ffffff;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #fff9f9;
+}
+
+/* Custom animations for the landing page */
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #8b5cf6, #10b981);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #7c3aed, #059669);
+}
+
+/* Glass morphism effect */
+.glass {
+  /* background: rgba(246, 242, 242, 0.1); */
+  backdrop-filter: blur(10px);
+  border: 1px solid rgb(255, 255, 255);
+}
+
+/* Gradient text animation */
+.gradient-text {
+  background: linear-gradient(-45deg, #8b5cf6, #ec4899, #10b981, #3b82f6);
+  background-size: 400% 400%;
+  animation: gradient 3s ease infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Custom font classes */
+.font-anton {
+  font-family: 'Anton', sans-serif;
+}
+
+.font-outfit {
+  font-family: 'Outfit', sans-serif;
+}
+
+/* Responsive utilities */
+@media (max-width: 768px) {
+  h1 {
+    font-size: 2.5em;
+  }
+  
+  .text-5xl {
+    font-size: 3rem;
+  }
+  
+  .text-6xl {
+    font-size: 3.75rem;
+  }
+}
+
+/* Fix for video elements */
+video {
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+}
+
+/* Fix for image elements */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Ensure proper form styling */
+input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* Fix for flex layouts */
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.flex-row {
+  flex-direction: row;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}

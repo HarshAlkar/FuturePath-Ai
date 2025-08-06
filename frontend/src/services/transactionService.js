@@ -32,10 +32,18 @@ class TransactionService {
 
   async addTransaction(transactionData) {
     try {
+      console.log('Adding transaction with data:', transactionData);
+      
       const token = authService.getToken();
       if (!token) {
         throw new Error('No authentication token');
       }
+
+      console.log('Making request to:', `${baseURL}/api/transactions`);
+      console.log('Request headers:', {
+        'Authorization': `Bearer ${token.substring(0, 20)}...`,
+        'Content-Type': 'application/json',
+      });
 
       const response = await fetch(`${baseURL}/api/transactions`, {
         method: 'POST',
@@ -46,15 +54,23 @@ class TransactionService {
         body: JSON.stringify(transactionData),
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (response.ok) {
         const data = await response.json();
+        console.log('Transaction added successfully:', data);
         return data.transaction;
       } else {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to add transaction');
+        console.error('Server error response:', errorData);
+        throw new Error(errorData.message || `Failed to add transaction (${response.status})`);
       }
     } catch (error) {
       console.error('Error adding transaction:', error);
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error('Network error: Unable to connect to server');
+      }
       throw error;
     }
   }
@@ -95,6 +111,8 @@ class TransactionService {
         throw new Error('No authentication token');
       }
 
+      console.log('Delete request - ID:', id, 'Token:', token ? 'Present' : 'Missing');
+
       const response = await fetch(`${baseURL}/api/transactions/${id}`, {
         method: 'DELETE',
         headers: {
@@ -103,10 +121,13 @@ class TransactionService {
         },
       });
 
+      console.log('Delete response status:', response.status);
+
       if (response.ok) {
         return true;
       } else {
         const errorData = await response.json();
+        console.error('Delete error response:', errorData);
         throw new Error(errorData.message || 'Failed to delete transaction');
       }
     } catch (error) {
