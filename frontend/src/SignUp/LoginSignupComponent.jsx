@@ -14,14 +14,15 @@ const LoginSignupComponent = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    password: ''
+    password: '',
+    age: ''
   });
 
   const toggleMode = () => {
     setSignInMode(!signInMode);
     setError('');
     setSuccess('');
-    setFormData({ name: '', email: '', password: '' });
+    setFormData({ name: '', email: '', password: '', age: '' });
   };
 
   const handleInputChange = (e) => {
@@ -37,6 +38,31 @@ const LoginSignupComponent = () => {
     setLoading(true);
     setError('');
     setSuccess('');
+
+    // Client-side validation
+    if (!signInMode) {
+      // Signup validation
+      if (formData.name.trim().length < 2) {
+        setError('Name must be at least 2 characters long');
+        setLoading(false);
+        return;
+      }
+      if (formData.password.length < 6) {
+        setError('Password must be at least 6 characters long');
+        setLoading(false);
+        return;
+      }
+      if (!formData.email.includes('@')) {
+        setError('Please enter a valid email address');
+        setLoading(false);
+        return;
+      }
+      if (!formData.age || formData.age < 13 || formData.age > 100) {
+        setError('Please enter a valid age between 13 and 100');
+        setLoading(false);
+        return;
+      }
+    }
 
     try {
       if (signInMode) {
@@ -58,18 +84,23 @@ const LoginSignupComponent = () => {
         }
       } else {
         // Signup
-        const response = await authAPI.signup({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password
-        });
+        const signupData = {
+          name: formData.name.trim(),
+          email: formData.email.trim().toLowerCase(),
+          password: formData.password,
+          age: parseInt(formData.age) || 0
+        };
+        
+        console.log('Sending signup data:', signupData);
+        
+        const response = await authAPI.signup(signupData);
 
         if (response.success) {
           setAuthToken(response.token);
           setUser(response.user);
-          setSuccess('Account created successfully! Redirecting...');
+          setSuccess('Account created successfully! Redirecting to onboarding...');
           setTimeout(() => {
-            navigate('/dashboard');
+            navigate('/onboarding');
           }, 1000);
         } else {
           setError(response.message || 'Registration failed. Please try again.');
@@ -120,7 +151,7 @@ const LoginSignupComponent = () => {
               value={formData.email}
               onChange={handleInputChange}
               required
-              className="bg-gray-200 py-3 px-4 my-2 w-full rounded focus:outline-none focus:ring-2 focus:ring-green-500" 
+              className="bg-gray-200 py-3 px-4 my-2 w-full rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-700 " 
             />
             <input 
               type="password" 
@@ -130,7 +161,18 @@ const LoginSignupComponent = () => {
               onChange={handleInputChange}
               required
               minLength={6}
-              className="bg-gray-200 py-3 px-4 my-2 w-full rounded focus:outline-none focus:ring-2 focus:ring-green-500" 
+              className="bg-gray-200 py-3 px-4 my-2 w-full rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-700" 
+            />
+            <input 
+              type="number" 
+              name="age"
+              placeholder="Age" 
+              value={formData.age}
+              onChange={handleInputChange}
+              required
+              min="13"
+              max="100"
+              className="bg-gray-200 py-3 px-4 my-2 w-full rounded focus:outline-none focus:ring-2 focus:ring-green-500   " 
             />
             <button 
               type="submit"
@@ -155,7 +197,7 @@ const LoginSignupComponent = () => {
               value={formData.email}
               onChange={handleInputChange}
               required
-              className="bg-gray-200 py-3 px-4 my-2 w-full rounded focus:outline-none focus:ring-2 focus:ring-green-500" 
+              className="bg-gray-200 py-3 px-4 my-2 w-full rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-700" 
             />
             <input 
               type="password" 
@@ -164,7 +206,7 @@ const LoginSignupComponent = () => {
               value={formData.password}
               onChange={handleInputChange}
               required
-              className="bg-gray-200 py-3 px-4 my-2 w-full rounded focus:outline-none focus:ring-2 focus:ring-green-500" 
+              className="bg-gray-200 py-3 px-4 my-2 w-full rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-700" 
             />
             <a href="#" className="text-gray-600 text-sm my-4 hover:text-gray-800">Forgot your password?</a>
             <button 

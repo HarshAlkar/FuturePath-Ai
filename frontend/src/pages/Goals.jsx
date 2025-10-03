@@ -1,13 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3, Goal, DollarSign, FileText, Bell, User, Plus, Grid3X3, List, Eye, Edit3, X, TrendingUp, TrendingDown, Calendar, Target, Zap, Trash2 } from 'lucide-react';
+import { BarChart3, Goal, DollarSign, FileText, Bell, User, Plus, Grid3X3, List, Eye, Edit3, X, TrendingUp, TrendingDown, Calendar, Target, Zap, Trash2, RefreshCw, TrendingUp as SIPIcon } from 'lucide-react';
 import MainDashboardNavbar from './main_dashboard_navbar';
 import goalService from '../services/goalService';
 import transactionService from '../services/transactionService';
+import sharedDataService from '../services/sharedDataService';
+import StockAnalyzer from './StockAnalyzer';
+import SipRecommendation from '../components/SipRecommendation';
 
 const Goals = () => {
   const [viewMode, setViewMode] = useState('grid');
   const [sortBy, setSortBy] = useState('progress');
   const [goals, setGoals] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [metrics, setMetrics] = useState({
+    totalSpending: 0,
+    savingsRate: 0,
+    budgetUtilization: 0,
+    investmentGrowth: 0
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [newGoal, setNewGoal] = useState({
@@ -27,22 +37,243 @@ const Goals = () => {
   const [expenseAnalysis, setExpenseAnalysis] = useState(null);
   const [showExpenseInsights, setShowExpenseInsights] = useState(false);
   const [showAddGoalForm, setShowAddGoalForm] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [monthlySavings, setMonthlySavings] = useState({
+    amount: 0,
+    percentage: 0,
+    trend: 'stable',
+    lastMonth: 0,
+    thisMonth: 0
+  });
+  const [savingsRecommendations, setSavingsRecommendations] = useState({
+    currentIncome: 0,
+    recommendedSavings: {
+      emergency: 0,
+      retirement: 0,
+      shortTerm: 0,
+      total: 0
+    },
+    savingsTargets: {
+      minimum: 0,
+      recommended: 0,
+      aggressive: 0
+    }
+  });
+  const [showSipModal, setShowSipModal] = useState(false);
 
   useEffect(() => {
-    fetchGoals();
+    // Initialize shared data service
+    initializeSharedData();
+    
+    // Cleanup on unmount
+    return () => {
+      sharedDataService.removeAllListeners();
+    };
   }, []);
 
-  const fetchGoals = async () => {
-    setLoading(true);
-    setError(null);
+  const initializeSharedData = async () => {
     try {
-      const response = await goalService.getGoals();
-      setGoals(response || []);
+      setLoading(true);
+      setError(null);
+      
+      // Set up event listeners
+      sharedDataService.on('dataUpdated', handleDataUpdate);
+      sharedDataService.on('loading', setLoading);
+      sharedDataService.on('error', handleError);
+      sharedDataService.on('goalAdded', handleGoalAdded);
+      sharedDataService.on('goalUpdated', handleGoalUpdated);
+      sharedDataService.on('goalDeleted', handleGoalDeleted);
+      
+      // Initialize the service
+      await sharedDataService.initialize();
+      
     } catch (error) {
-      console.error("Error fetching goals:", error);
-      setError("Failed to load goals. Please try again.");
+      console.error('Error initializing shared data:', error);
+      setError('Failed to load data. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDataUpdate = (data) => {
+    console.log('Goals: Data updated from shared service:', data);
+    setGoals(data.goals || []);
+    setTransactions(data.transactions || []);
+    setMetrics(data.metrics || {});
+    setLastUpdate(data.lastUpdate);
+    
+    // Calculate monthly savings
+    calculateMonthlySavings(data.transactions || []);
+    
+    // Calculate savings recommendations based on income
+    calculateSavingsRecommendations(data.transactions || []);
+  };
+
+  const calculateMonthlySavings = (transactionsData) => {
+    try {
+      // Calculate current month income and expenses
+      const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+      const lastMonth = new Date();
+      lastMonth.setMonth(lastMonth.getMonth() - 1);
+      const lastMonthStr = lastMonth.toISOString().slice(0, 7);
+
+      const currentMonthData = transactionsData.filter(t => 
+        t.date && t.date.startsWith(currentMonth)
+      );
+      
+      const lastMonthData = transactionsData.filter(t => 
+        t.date && t.date.startsWith(lastMonthStr)
+      );
+
+      // Calculate income and expenses for current month
+      const currentMonthIncome = currentMonthData
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      
+      const currentMonthExpenses = currentMonthData
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      
+      const currentMonthSavings = currentMonthIncome - currentMonthExpenses;
+
+      // Calculate income and expenses for last month
+      const lastMonthIncome = lastMonthData
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      
+      const lastMonthExpenses = lastMonthData
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      
+      const lastMonthSavings = lastMonthIncome - lastMonthExpenses;
+
+      // Calculate savings percentage
+      const savingsPercentage = currentMonthIncome > 0 ? 
+        (currentMonthSavings / currentMonthIncome) * 100 : 0;
+
+      // Determine trend
+      let trend = 'stable';
+      if (currentMonthSavings > lastMonthSavings * 1.1) {
+        trend = 'up';
+      } else if (currentMonthSavings < lastMonthSavings * 0.9) {
+        trend = 'down';
+      }
+
+      setMonthlySavings({
+        amount: currentMonthSavings,
+        percentage: Math.round(savingsPercentage),
+        trend: trend,
+        lastMonth: lastMonthSavings,
+        thisMonth: currentMonthSavings
+      });
+
+      console.log('Monthly savings calculated:', {
+        currentMonthSavings,
+        lastMonthSavings,
+        savingsPercentage,
+        trend
+      });
+
+    } catch (error) {
+      console.error('Error calculating monthly savings:', error);
+    }
+  };
+
+  const calculateSavingsRecommendations = (transactionsData) => {
+    try {
+      // Calculate current monthly income
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const currentMonthIncome = transactionsData
+        .filter(t => t.type === 'income' && t.date && t.date.startsWith(currentMonth))
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+
+      // Calculate average monthly income (last 3 months)
+      const last3Months = [];
+      for (let i = 0; i < 3; i++) {
+        const date = new Date();
+        date.setMonth(date.getMonth() - i);
+        const monthStr = date.toISOString().slice(0, 7);
+        const monthIncome = transactionsData
+          .filter(t => t.type === 'income' && t.date && t.date.startsWith(monthStr))
+          .reduce((sum, t) => sum + Number(t.amount), 0);
+        last3Months.push(monthIncome);
+      }
+      
+      const averageMonthlyIncome = last3Months.reduce((sum, income) => sum + income, 0) / 3;
+      const monthlyIncome = currentMonthIncome > 0 ? currentMonthIncome : averageMonthlyIncome;
+
+      // Calculate recommended savings based on income
+      const emergencyFund = monthlyIncome * 6; // 6 months of expenses
+      const retirementSavings = monthlyIncome * 0.15; // 15% for retirement
+      const shortTermSavings = monthlyIncome * 0.05; // 5% for short-term goals
+      const totalRecommended = emergencyFund + retirementSavings + shortTermSavings;
+
+      // Calculate savings targets based on different strategies
+      const minimumSavings = monthlyIncome * 0.1; // 10% minimum
+      const recommendedSavings = monthlyIncome * 0.2; // 20% recommended
+      const aggressiveSavings = monthlyIncome * 0.3; // 30% aggressive
+
+      setSavingsRecommendations({
+        currentIncome: monthlyIncome,
+        recommendedSavings: {
+          emergency: emergencyFund,
+          retirement: retirementSavings,
+          shortTerm: shortTermSavings,
+          total: totalRecommended
+        },
+        savingsTargets: {
+          minimum: minimumSavings,
+          recommended: recommendedSavings,
+          aggressive: aggressiveSavings
+        }
+      });
+
+      console.log('Savings recommendations calculated:', {
+        monthlyIncome,
+        emergencyFund,
+        retirementSavings,
+        shortTermSavings,
+        totalRecommended,
+        minimumSavings,
+        recommendedSavings,
+        aggressiveSavings
+      });
+
+    } catch (error) {
+      console.error('Error calculating savings recommendations:', error);
+    }
+  };
+
+  const handleError = (error) => {
+    console.error('Goals: Error from shared service:', error);
+    setError('Failed to load data. Please try again.');
+  };
+
+  const handleGoalAdded = (goalData) => {
+    console.log('Goals: Goal added:', goalData);
+    setError(null);
+  };
+
+  const handleGoalUpdated = ({ id, goalData }) => {
+    console.log('Goals: Goal updated:', { id, goalData });
+    setError(null);
+  };
+
+  const handleGoalDeleted = (id) => {
+    console.log('Goals: Goal deleted:', id);
+    setError(null);
+  };
+
+  const refreshData = async () => {
+    try {
+      setIsRefreshing(true);
+      await sharedDataService.refreshData();
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      setError('Failed to refresh data. Please try again.');
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -50,8 +281,7 @@ const Goals = () => {
     setLoading(true);
     setError(null);
     try {
-      await goalService.createGoal(newGoal);
-      fetchGoals();
+      await sharedDataService.addGoal(newGoal);
       setNewGoal({ title: '', amount: '', type: 'Short-Term', timeline: '' });
       setShowAddGoalForm(false);
     } catch (error) {
@@ -66,8 +296,7 @@ const Goals = () => {
     setLoading(true);
     setError(null);
     try {
-      await goalService.updateGoal(id, updatedGoal);
-      fetchGoals();
+      await sharedDataService.updateGoal(id, updatedGoal);
       setEditGoal(null);
       setShowEditModal(false);
     } catch (error) {
@@ -82,8 +311,7 @@ const Goals = () => {
     setLoading(true);
     setError(null);
     try {
-      await goalService.deleteGoal(id);
-      fetchGoals();
+      await sharedDataService.deleteGoal(id);
     } catch (error) {
       console.error("Error deleting goal:", error);
       setError("Failed to delete goal. Please try again.");
@@ -108,9 +336,7 @@ const Goals = () => {
       if (confirmed) {
         setLoading(true);
         setError(null);
-        await goalService.deleteGoal(id);
-        await fetchGoals();
-        // Show success message
+        await sharedDataService.deleteGoal(id);
         alert('Goal deleted successfully');
       }
     } catch (error) {
@@ -139,11 +365,10 @@ const Goals = () => {
         
         // Delete all goals one by one
         const deletePromises = goals.map(goal => 
-          goalService.deleteGoal(goal._id)
+          sharedDataService.deleteGoal(goal._id)
         );
         
         await Promise.all(deletePromises);
-        await fetchGoals();
         
         alert('All goals have been deleted successfully');
       }
@@ -272,14 +497,16 @@ const Goals = () => {
       };
 
       try {
-        await goalService.createGoal(newGoalData);
-        fetchGoals();
+        await sharedDataService.addGoal(newGoalData);
+        alert('Goal created successfully!');
         setConversationInput('');
       } catch (error) {
         console.error('Error adding conversation goal:', error);
+        setError('Failed to create goal. Please try again.');
       }
     }
   };
+
 
   const handleGeneratePlan = async (goalId) => {
     setPlanLoading(true);
@@ -427,6 +654,14 @@ const Goals = () => {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Goals & Roadmap</h1>
             <p className="text-gray-600 mt-2">Track your financial goals and get AI-powered recommendations</p>
+            {lastUpdate && (
+              <div className="flex items-center space-x-2 mt-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-xs text-gray-500">
+                  Last updated: {new Date(lastUpdate).toLocaleTimeString()}
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex space-x-3 mt-4 sm:mt-0">
             <button 
@@ -445,6 +680,23 @@ const Goals = () => {
                 <span>Delete All Goals</span>
               </button>
             )}
+            {lastUpdate && (
+              <button
+                onClick={refreshData}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg flex items-center space-x-2"
+                disabled={isRefreshing}
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>{isRefreshing ? 'Refreshing...' : 'Refresh Data'}</span>
+              </button>
+            )}
+            <button
+              onClick={() => setShowSipModal(true)}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
+            >
+              <SIPIcon className="w-4 h-4" />
+              <span>SIP Recommendations</span>
+            </button>
           </div>
         </div>
 
@@ -677,6 +929,262 @@ const Goals = () => {
                 <span className="text-gray-700">Behind</span>
                 <span className="font-bold text-gray-900">1</span>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Income-Based Savings Recommendations */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-gray-900">💰 Income-Based Savings Guide</h3>
+            <div className="text-sm text-gray-500">
+              Based on your current income
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            {/* Current Income Card */}
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-semibold text-blue-900">Current Monthly Income</h4>
+                  <p className="text-2xl font-bold text-blue-700">
+                    ₹{savingsRecommendations.currentIncome.toLocaleString()}
+                  </p>
+                </div>
+                <div className="text-blue-600">
+                  <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z"/>
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {/* Emergency Fund Card */}
+            <div className="bg-gradient-to-r from-red-50 to-red-100 rounded-lg p-4 border border-red-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-semibold text-red-900">Emergency Fund</h4>
+                  <p className="text-lg font-bold text-red-700">
+                    ₹{savingsRecommendations.recommendedSavings.emergency.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-red-600">6 months of expenses</p>
+                </div>
+                <div className="text-red-600">
+                  <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {/* Retirement Savings Card */}
+            <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-semibold text-green-900">Retirement Savings</h4>
+                  <p className="text-lg font-bold text-green-700">
+                    ₹{savingsRecommendations.recommendedSavings.retirement.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-green-600">15% of income</p>
+                </div>
+                <div className="text-green-600">
+                  <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Savings Targets Section */}
+          <div className="bg-gray-50 rounded-lg p-4 mb-4">
+            <h4 className="font-semibold text-gray-900 mb-3">🎯 Monthly Savings Targets</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Minimum Savings */}
+              <div className="bg-white rounded-lg p-3 border border-gray-200">
+                <div className="text-center">
+                  <h5 className="font-medium text-gray-700">Minimum</h5>
+                  <p className="text-xl font-bold text-orange-600">
+                    ₹{savingsRecommendations.savingsTargets.minimum.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-500">10% of income</p>
+                  <div className="mt-2">
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-orange-500 h-2 rounded-full" style={{width: '10%'}}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recommended Savings */}
+              <div className="bg-white rounded-lg p-3 border border-gray-200">
+                <div className="text-center">
+                  <h5 className="font-medium text-gray-700">Recommended</h5>
+                  <p className="text-xl font-bold text-blue-600">
+                    ₹{savingsRecommendations.savingsTargets.recommended.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-500">20% of income</p>
+                  <div className="mt-2">
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-blue-500 h-2 rounded-full" style={{width: '20%'}}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Aggressive Savings */}
+              <div className="bg-white rounded-lg p-3 border border-gray-200">
+                <div className="text-center">
+                  <h5 className="font-medium text-gray-700">Aggressive</h5>
+                  <p className="text-xl font-bold text-green-600">
+                    ₹{savingsRecommendations.savingsTargets.aggressive.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-500">30% of income</p>
+                  <div className="mt-2">
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-green-500 h-2 rounded-full" style={{width: '30%'}}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Personalized Recommendations */}
+          <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+            <h4 className="font-semibold text-blue-900 mb-3">💡 Personalized Savings Advice</h4>
+            <div className="space-y-2 text-sm text-blue-800">
+              {monthlySavings.percentage < 10 && (
+                <p>
+                  <strong>Priority:</strong> Start with the minimum savings target of ₹{savingsRecommendations.savingsTargets.minimum.toLocaleString()} 
+                  to build your emergency fund. Focus on reducing non-essential expenses.
+                </p>
+              )}
+              {monthlySavings.percentage >= 10 && monthlySavings.percentage < 20 && (
+                <p>
+                  <strong>Next Step:</strong> Aim for the recommended savings target of ₹{savingsRecommendations.savingsTargets.recommended.toLocaleString()}. 
+                  You're on the right track - consider automating your savings.
+                </p>
+              )}
+              {monthlySavings.percentage >= 20 && (
+                <p>
+                  <strong>Excellent!</strong> You're saving {monthlySavings.percentage}% of your income. Consider the aggressive target 
+                  of ₹{savingsRecommendations.savingsTargets.aggressive.toLocaleString()} for faster wealth building.
+                </p>
+              )}
+              <p>
+                <strong>Emergency Fund:</strong> Build up to ₹{savingsRecommendations.recommendedSavings.emergency.toLocaleString()} 
+                for 6 months of expenses to handle unexpected situations.
+              </p>
+              <p>
+                <strong>Retirement:</strong> Allocate ₹{savingsRecommendations.recommendedSavings.retirement.toLocaleString()} 
+                monthly for long-term financial security.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Monthly Savings Overview */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-6">Monthly Savings Overview</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Current Month Savings */}
+            <div className="bg-white rounded-lg p-6 border border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">This Month</h3>
+                <div className={`w-3 h-3 rounded-full ${
+                  monthlySavings.trend === 'up' ? 'bg-green-500' :
+                  monthlySavings.trend === 'down' ? 'bg-red-500' : 'bg-yellow-500'
+                }`}></div>
+              </div>
+              <div className="text-center">
+                <div className={`text-3xl font-bold ${
+                  monthlySavings.amount >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  ₹{monthlySavings.amount.toLocaleString()}
+                </div>
+                <div className="text-sm text-gray-600 mt-1">
+                  {monthlySavings.percentage}% of income
+                </div>
+                <div className="text-xs text-gray-500 mt-2">
+                  {monthlySavings.trend === 'up' ? '↗️ Increasing' :
+                   monthlySavings.trend === 'down' ? '↘️ Decreasing' : '→ Stable'}
+                </div>
+              </div>
+            </div>
+
+            {/* Last Month Comparison */}
+            <div className="bg-white rounded-lg p-6 border border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Last Month</h3>
+              <div className="text-center">
+                <div className={`text-2xl font-bold ${
+                  monthlySavings.lastMonth >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  ₹{monthlySavings.lastMonth.toLocaleString()}
+                </div>
+                <div className="text-sm text-gray-600 mt-1">
+                  Comparison
+                </div>
+                <div className="text-xs text-gray-500 mt-2">
+                  {monthlySavings.thisMonth > monthlySavings.lastMonth ? 
+                    `+₹${(monthlySavings.thisMonth - monthlySavings.lastMonth).toLocaleString()}` :
+                    `-₹${Math.abs(monthlySavings.thisMonth - monthlySavings.lastMonth).toLocaleString()}`
+                  } vs last month
+                </div>
+              </div>
+            </div>
+
+            {/* Savings Rate */}
+            <div className="bg-white rounded-lg p-6 border border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Savings Rate</h3>
+              <div className="text-center">
+                <div className={`text-3xl font-bold ${
+                  monthlySavings.percentage >= 20 ? 'text-green-600' :
+                  monthlySavings.percentage >= 10 ? 'text-yellow-600' : 'text-red-600'
+                }`}>
+                  {monthlySavings.percentage}%
+                </div>
+                <div className="text-sm text-gray-600 mt-1">
+                  of monthly income
+                </div>
+                <div className="text-xs text-gray-500 mt-2">
+                  {monthlySavings.percentage >= 20 ? '🎯 Excellent!' :
+                   monthlySavings.percentage >= 10 ? '📈 Good' : '⚠️ Needs improvement'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Savings Recommendations */}
+          <div className="mt-6 bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <h4 className="font-semibold text-gray-900 mb-3">💡 Savings Recommendations</h4>
+            <div className="space-y-2">
+              {monthlySavings.percentage < 10 && (
+                <p className="text-sm text-gray-700">
+                  <strong>Priority:</strong> Start with the minimum savings target of ₹{savingsRecommendations.savingsTargets.minimum.toLocaleString()} 
+                  to build your emergency fund. Focus on reducing non-essential expenses.
+                </p>
+              )}
+              {monthlySavings.percentage >= 10 && monthlySavings.percentage < 20 && (
+                <p className="text-sm text-gray-700">
+                  <strong>Next Step:</strong> Aim for the recommended savings target of ₹{savingsRecommendations.savingsTargets.recommended.toLocaleString()}. 
+                  You're on the right track - consider automating your savings.
+                </p>
+              )}
+              {monthlySavings.percentage >= 20 && (
+                <p className="text-sm text-gray-700">
+                  <strong>Excellent!</strong> You're saving {monthlySavings.percentage}% of your income. Consider the aggressive target 
+                  of ₹{savingsRecommendations.savingsTargets.aggressive.toLocaleString()} for faster wealth building.
+                </p>
+              )}
+              {monthlySavings.trend === 'down' && (
+                <p className="text-sm text-gray-700">
+                  <strong>Trend:</strong> Your savings decreased this month. Review your spending patterns 
+                  and identify areas to cut back on expenses.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -918,7 +1426,7 @@ const Goals = () => {
         )}
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
@@ -958,6 +1466,25 @@ const Goals = () => {
               </div>
             </div>
           </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Monthly Savings</p>
+                <p className={`text-3xl font-bold ${
+                  monthlySavings.amount >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  ₹{monthlySavings.amount.toLocaleString()}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {monthlySavings.percentage}% of income
+                </p>
+              </div>
+              <div className="p-3 bg-green-50 rounded-lg">
+                <TrendingUp className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Footer Message */}
@@ -970,6 +1497,18 @@ const Goals = () => {
           </div>
         </div>
       </div>
+
+      {/* SIP Recommendation Modal */}
+      {showSipModal && (
+        <SipRecommendation
+          userProfile={{
+            monthlyIncome: savingsRecommendations.currentIncome / 12,
+            age: 30, // You can get this from user profile
+            investmentExperience: 'moderate'
+          }}
+          onClose={() => setShowSipModal(false)}
+        />
+      )}
     </div>
   );
 };

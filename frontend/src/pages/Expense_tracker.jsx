@@ -518,9 +518,9 @@ const Expense_tracker = () => {
         console.log('Invalid date detected, using current date');
         transactionDate = new Date().toISOString().split('T')[0];
       } else {
-        // Test if the date is valid
-        const testDate = new Date(transactionDate);
-        if (isNaN(testDate.getTime())) {
+        // Validate the date
+        const validateDate = new Date(transactionDate);
+        if (isNaN(validateDate.getTime())) {
           console.log('Invalid date format, using current date');
           transactionDate = new Date().toISOString().split('T')[0];
         }
@@ -609,51 +609,6 @@ const Expense_tracker = () => {
               className="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors"
             >
               Delete All Transactions
-            </button>
-            <button 
-              onClick={async () => {
-                try {
-                  const result = await ocrService.testOCRFunctionality();
-                  if (result.success) {
-                    alert('OCR test completed successfully! Check console for details.');
-                  } else {
-                    alert(`OCR test failed: ${result.error}`);
-                  }
-                } catch (error) {
-                  alert(`OCR test error: ${error.message}`);
-                }
-              }}
-              className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors"
-            >
-              Test OCR
-            </button>
-            <button 
-              onClick={async () => {
-                try {
-                  // Test transaction creation with mock data
-                  const testTransaction = {
-                    type: 'expense',
-                    amount: 100,
-                    category: 'Test',
-                    description: 'Test transaction from OCR',
-                    date: new Date().toISOString().split('T')[0]
-                  };
-                  
-                  console.log('Testing transaction creation with:', testTransaction);
-                  const result = await transactionService.addTransaction(testTransaction);
-                  console.log('Transaction test result:', result);
-                  alert('Transaction test completed successfully! Check console for details.');
-                  
-                  // Refresh transactions
-                  await fetchTransactions();
-                } catch (error) {
-                  console.error('Transaction test error:', error);
-                  alert(`Transaction test failed: ${error.message}`);
-                }
-              }}
-              className="bg-orange-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-orange-700 transition-colors"
-            >
-              Test Transaction
             </button>
           </div>
         </div>

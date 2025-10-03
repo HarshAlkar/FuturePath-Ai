@@ -68,6 +68,9 @@ const MainDashboardNavbar = () => {
         <Link to="/investment" className="text-gray-900 font-medium whitespace-nowrap hover:text-blue-600">
           Investment
         </Link>
+        <Link to="/super-complete" className="text-gray-900 font-medium whitespace-nowrap hover:text-blue-600 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent font-bold">
+          Super Complete
+        </Link>
       </div>
       <div className="flex items-center space-x-4">
         <Bell className="w-5 h-5 text-gray-600 cursor-pointer hover:text-blue-600" />

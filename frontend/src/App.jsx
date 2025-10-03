@@ -6,10 +6,16 @@ import ExpenseTracker from './pages/Expense_tracker'
 import Goals from './pages/Goals'
 import Insights from './pages/Insights'
 import Investment from './pages/Investment'
+import GoldDashboard from './pages/GoldDashboard'
+import IndianGoldDashboard from './pages/IndianGoldDashboard'
+import SuperComplete from './pages/SuperComplete'
 import Profile from './pages/Profile'
 import Settings from './pages/Settings'
 import LoginSignupComponent from './SignUp/LoginSignupComponent'
 import ProtectedRoute from './components/ProtectedRoute'
+import OnboardingFlow from './components/OnboardingFlow'
+import LandPage from './LandingPage/LandPage'
+import { Toaster } from 'react-hot-toast'
 import './App.css'
 
 function App() {
@@ -17,6 +23,7 @@ function App() {
     <div className="App">
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/landpage" element={<LandPage />} />
         <Route path="/login" element={<LoginSignupComponent />} />
         <Route path="/signup" element={<LoginSignupComponent />} />
         <Route path="/get-started" element={<LoginSignupComponent />} />
@@ -28,9 +35,25 @@ function App() {
         <Route path="/ai-advisor" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
         <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
         <Route path="/investment" element={<ProtectedRoute><Investment /></ProtectedRoute>} />
+        <Route path="/gold-dashboard" element={<ProtectedRoute><GoldDashboard /></ProtectedRoute>} />
+        <Route path="/indian-gold-dashboard" element={<ProtectedRoute><IndianGoldDashboard /></ProtectedRoute>} />
+        <Route path="/super-complete" element={<ProtectedRoute><SuperComplete /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/onboarding" element={<ProtectedRoute><OnboardingFlow /></ProtectedRoute>} />
+        
+        
       </Routes>
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+        }}
+      />
     </div>
   )
 }

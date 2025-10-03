@@ -9,6 +9,14 @@ import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
 import OpenAI from 'openai';
 import multer from 'multer';
+import axios from 'axios';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import Redis from 'ioredis';
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
+import winston from 'winston';
+import cron from 'node-cron';
 import User from './models/User.js';
 import Transaction from './models/Transaction.js';
 import Goal from './models/Goal.js';
@@ -70,11 +78,269 @@ mongoose.connect(MONGODB_URI, {
   console.error('❌ MongoDB connection error:', err);
 });
 
+// Function to create default data based on survey answers
+async function createDefaultData(userId, answers, userProfile) {
+  try {
+    const defaultData = {
+      transactions: [],
+      goals: [],
+      subscriptions: []
+    };
+
+    // Extract key information from answers
+    const monthlyIncome = extractMonthlyIncome(answers, userProfile);
+    const spendingCategories = extractSpendingCategories(answers);
+    const savingsRate = extractSavingsRate(answers);
+    const investmentInterest = extractInvestmentInterest(answers);
+
+    // Create default transactions based on answers
+    defaultData.transactions = await createDefaultTransactions(userId, answers, monthlyIncome);
+
+    // Create default goals based on answers
+    defaultData.goals = await createDefaultGoals(userId, answers, monthlyIncome, savingsRate);
+
+    // Create default subscriptions
+    defaultData.subscriptions = await createDefaultSubscriptions(userId, answers);
+
+    return defaultData;
+  } catch (error) {
+    console.error('Error creating default data:', error);
+    throw error;
+  }
+}
+
+// Helper functions to extract information from survey answers
+function extractMonthlyIncome(answers, userProfile) {
+  // Default income based on user profile
+  let baseIncome = 30000; // Default monthly income
+
+  // Only use userProfile if it exists and has age property
+  if (userProfile && userProfile.age) {
+    if (userProfile.age >= 18 && userProfile.age <= 25) {
+      baseIncome = 25000;
+    } else if (userProfile.age >= 26 && userProfile.age <= 35) {
+      baseIncome = 45000;
+    } else if (userProfile.age >= 36 && userProfile.age <= 50) {
+      baseIncome = 75000;
+    } else {
+      baseIncome = 60000;
+    }
+  }
+
+  // Adjust based on survey answers
+  if (answers && answers.q1) {
+    if (answers.q1.includes('Less than ₹30,000')) {
+      baseIncome = 25000;
+    } else if (answers.q1.includes('₹30,000 - ₹60,000')) {
+      baseIncome = 45000;
+    } else if (answers.q1.includes('₹60,000 - ₹1,00,000')) {
+      baseIncome = 80000;
+    } else if (answers.q1.includes('More than ₹1,00,000')) {
+      baseIncome = 120000;
+    }
+  }
+
+  return baseIncome;
+}
+
+function extractSpendingCategories(answers) {
+  const categories = [];
+  
+  if (answers && answers.q4) {
+    if (answers.q4.includes('Food')) categories.push('Food & Dining');
+    if (answers.q4.includes('Entertainment')) categories.push('Entertainment');
+    if (answers.q4.includes('Clothes')) categories.push('Shopping');
+    if (answers.q4.includes('Books')) categories.push('Education');
+  }
+
+  return categories.length > 0 ? categories : ['Food & Dining', 'Transportation', 'Shopping'];
+}
+
+function extractSavingsRate(answers) {
+  if (answers && answers.q6) {
+    if (answers.q6.includes('Very easy')) return 0.25;
+    if (answers.q6.includes('It\'s okay')) return 0.20;
+    if (answers.q6.includes('Quite hard')) return 0.15;
+    if (answers.q6.includes('Almost impossible')) return 0.10;
+  }
+  return 0.15; // Default 15% savings rate
+}
+
+function extractInvestmentInterest(answers) {
+  if (answers && answers.q8) {
+    if (answers.q8.includes('Very interested')) return 'high';
+    if (answers.q8.includes('A little bit')) return 'medium';
+    if (answers.q8.includes('Not sure')) return 'low';
+    if (answers.q8.includes('Not right now')) return 'none';
+  }
+  return 'medium';
+}
+
+// Create default transactions based on survey answers
+async function createDefaultTransactions(userId, answers, monthlyIncome) {
+  const transactions = [];
+  const currentDate = new Date();
+  
+  // Create sample transactions for the last 3 months
+  for (let month = 2; month >= 0; month--) {
+    const monthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - month, 1);
+    
+    // Food & Dining expenses
+    transactions.push({
+      userId: userId,
+      type: 'expense',
+      category: 'Food & Dining',
+      amount: Math.round(monthlyIncome * 0.15),
+      description: 'Monthly groceries and dining',
+      date: monthDate,
+      createdAt: monthDate
+    });
+
+    // Transportation expenses
+    transactions.push({
+      userId: userId,
+      type: 'expense',
+      category: 'Transportation',
+      amount: Math.round(monthlyIncome * 0.10),
+      description: 'Fuel and public transport',
+      date: monthDate,
+      createdAt: monthDate
+    });
+
+    // Shopping expenses
+    transactions.push({
+      userId: userId,
+      type: 'expense',
+      category: 'Shopping',
+      amount: Math.round(monthlyIncome * 0.08),
+      description: 'Clothing and personal items',
+      date: monthDate,
+      createdAt: monthDate
+    });
+
+    // Entertainment expenses
+    transactions.push({
+      userId: userId,
+      type: 'expense',
+      category: 'Entertainment',
+      amount: Math.round(monthlyIncome * 0.05),
+      description: 'Movies and leisure activities',
+      date: monthDate,
+      createdAt: monthDate
+    });
+
+    // Salary income
+    transactions.push({
+      userId: userId,
+      type: 'income',
+      category: 'Salary',
+      amount: monthlyIncome,
+      description: 'Monthly salary',
+      date: monthDate,
+      createdAt: monthDate
+    });
+  }
+
+  // Save transactions to database
+  const savedTransactions = await Transaction.insertMany(transactions);
+  return savedTransactions;
+}
+
+// Create default goals based on survey answers
+async function createDefaultGoals(userId, answers, monthlyIncome, savingsRate) {
+  const goals = [];
+  const currentDate = new Date();
+
+  // Emergency Fund Goal
+  goals.push({
+    userId: userId,
+    title: 'Emergency Fund',
+    amount: Math.round(monthlyIncome * 6),
+    type: 'Short-Term',
+    progress: Math.round(monthlyIncome * savingsRate * 2), // 2 months saved
+    timeline: '12 months',
+    icon: 'shield',
+    color: '#FF6B6B',
+    progressColor: '#4ECDC4'
+  });
+
+  // Savings Goal (if user shows interest in saving)
+  if (answers.q6 && !answers.q6.includes('Almost impossible')) {
+    goals.push({
+      userId: userId,
+      title: 'General Savings',
+      amount: Math.round(monthlyIncome * 12 * savingsRate),
+      type: 'Short-Term',
+      progress: Math.round(monthlyIncome * savingsRate * 3),
+      timeline: '12 months',
+      icon: 'piggy-bank',
+      color: '#4ECDC4',
+      progressColor: '#45B7D1'
+    });
+  }
+
+  // Investment Goal (if user shows interest in investing)
+  if (answers.q8 && answers.q8.includes('interested')) {
+    goals.push({
+      userId: userId,
+      title: 'Investment Portfolio',
+      amount: Math.round(monthlyIncome * 24),
+      type: 'Long-Term',
+      progress: Math.round(monthlyIncome * 0.05 * 6), // 5% for 6 months
+      timeline: '24 months',
+      icon: 'trending-up',
+      color: '#45B7D1',
+      progressColor: '#96CEB4'
+    });
+  }
+
+  // Save goals to database
+  const savedGoals = await Goal.insertMany(goals);
+  return savedGoals;
+}
+
+// Create default subscriptions
+async function createDefaultSubscriptions(userId, answers) {
+  const subscriptions = [];
+  const currentDate = new Date();
+
+  // Common subscriptions based on user profile
+  const commonSubscriptions = [
+    {
+      name: 'Netflix',
+      amount: 499,
+      category: 'Entertainment',
+      billingCycle: 'monthly',
+      nextBillingDate: new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate())
+    },
+    {
+      name: 'Spotify',
+      amount: 119,
+      category: 'Entertainment',
+      billingCycle: 'monthly',
+      nextBillingDate: new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate())
+    },
+    {
+      name: 'Amazon Prime',
+      amount: 1499,
+      category: 'Shopping',
+      billingCycle: 'yearly',
+      nextBillingDate: new Date(currentDate.getFullYear() + 1, currentDate.getMonth(), currentDate.getDate())
+    }
+  ];
+
+  // Add subscriptions to user's data (you might want to create a Subscription model)
+  subscriptions.push(...commonSubscriptions);
+
+  return subscriptions;
+}
+
 // Validation middleware
 const validateSignup = [
   body('name').trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters long'),
   body('email').isEmail().normalizeEmail().withMessage('Please enter a valid email'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
+  body('age').toInt().isInt({ min: 13, max: 100 }).withMessage('Age must be between 13 and 100')
 ];
 
 const validateLogin = [
@@ -94,6 +360,116 @@ function authMiddleware(req, res, next) {
   }
 }
 
+// Onboarding routes
+app.put('/api/users/:userId/onboarding', authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { surveyAnswers, onboardingCompleted } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Update user with survey answers and onboarding status
+    user.surveyAnswers = surveyAnswers;
+    user.onboardingCompleted = onboardingCompleted;
+    user.onboardingDate = new Date();
+
+    await user.save();
+
+    res.json({ 
+      success: true, 
+      message: 'Onboarding data updated successfully',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        onboardingCompleted: user.onboardingCompleted
+      }
+    });
+  } catch (error) {
+    console.error('Onboarding update error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update onboarding data' });
+  }
+});
+
+// General user update endpoint
+app.put('/api/users/:userId', authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const updateData = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Update user fields
+    if (updateData.onboardingCompleted !== undefined) {
+      user.onboardingCompleted = updateData.onboardingCompleted;
+    }
+    if (updateData.onboardingDate !== undefined) {
+      user.onboardingDate = updateData.onboardingDate;
+    }
+    if (updateData.defaultDataCreated !== undefined) {
+      user.defaultDataCreated = updateData.defaultDataCreated;
+    }
+
+    await user.save();
+
+    res.json({ 
+      success: true, 
+      message: 'User updated successfully',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        onboardingCompleted: user.onboardingCompleted,
+        onboardingDate: user.onboardingDate,
+        defaultDataCreated: user.defaultDataCreated
+      }
+    });
+  } catch (error) {
+    console.error('User update error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update user' });
+  }
+});
+
+// Create default data based on survey answers
+app.post('/api/users/:userId/create-default-data', authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { answers, userProfile } = req.body;
+
+    console.log('Creating default data for user:', userId);
+    console.log('Answers:', answers);
+    console.log('User profile:', userProfile);
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Create default data based on survey answers
+    const defaultData = await createDefaultData(userId, answers, userProfile);
+
+    res.json({ 
+      success: true, 
+      message: 'Default data created successfully',
+      defaultData
+    });
+  } catch (error) {
+    console.error('Create default data error:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to create default data',
+      error: error.message 
+    });
+  }
+});
+
 // Register route (alias for signup)
 app.post('/api/register', validateSignup, async (req, res) => {
   try {
@@ -106,7 +482,7 @@ app.post('/api/register', validateSignup, async (req, res) => {
       });
     }
 
-    const { name, email, password } = req.body;
+    const { name, email, password, age } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -126,6 +502,7 @@ app.post('/api/register', validateSignup, async (req, res) => {
       name,
       email,
       password: hashedPassword,
+      age: age
     });
     await newUser.save();
 
@@ -142,6 +519,10 @@ app.post('/api/register', validateSignup, async (req, res) => {
       name: newUser.name,
       email: newUser.email,
       createdAt: newUser.createdAt,
+      onboardingCompleted: newUser.onboardingCompleted || false,
+      age: newUser.age,
+      occupation: newUser.occupation,
+      employmentStatus: newUser.employmentStatus
     };
     res.status(201).json({
       success: true,
@@ -170,7 +551,7 @@ app.post('/api/signup', validateSignup, async (req, res) => {
       });
     }
 
-    const { name, email, password } = req.body;
+    const { name, email, password, age } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -190,6 +571,7 @@ app.post('/api/signup', validateSignup, async (req, res) => {
       name,
       email,
       password: hashedPassword,
+      age: age
     });
     await newUser.save();
 
@@ -206,6 +588,10 @@ app.post('/api/signup', validateSignup, async (req, res) => {
       name: newUser.name,
       email: newUser.email,
       createdAt: newUser.createdAt,
+      onboardingCompleted: newUser.onboardingCompleted || false,
+      age: newUser.age,
+      occupation: newUser.occupation,
+      employmentStatus: newUser.employmentStatus
     };
     res.status(201).json({
       success: true,
@@ -264,6 +650,10 @@ app.post('/api/login', validateLogin, async (req, res) => {
       name: user.name,
       email: user.email,
       createdAt: user.createdAt,
+      onboardingCompleted: user.onboardingCompleted || false,
+      age: user.age,
+      occupation: user.occupation,
+      employmentStatus: user.employmentStatus
     };
     res.json({
       success: true,
@@ -1297,6 +1687,224 @@ Format the response as a structured plan with clear sections.`;
   }
 });
 
+// SIP Recommendation API endpoints
+app.post('/api/sip/recommendations', authMiddleware, async (req, res) => {
+  try {
+    const { annualIncome, horizonYears, riskLevel } = req.body;
+    
+    // Validate input
+    if (!annualIncome || !horizonYears || !riskLevel) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: annualIncome, horizonYears, riskLevel'
+      });
+    }
+
+    // Call Python SIP service
+    try {
+      const pythonResponse = await axios.post('http://localhost:8001/recommend', {
+        annual_income: annualIncome,
+        horizon_years: horizonYears,
+        risk_level: riskLevel
+      }, {
+        timeout: 30000 // 30 second timeout
+      });
+
+      if (pythonResponse.data.success) {
+        res.json({
+          success: true,
+          recommendation: {
+            monthlySip: pythonResponse.data.monthly_sip,
+            annualIncome,
+            horizonYears,
+            riskLevel,
+            aiRecommendation: pythonResponse.data.recommendation,
+            fundRecommendations: pythonResponse.data.fund_recommendations,
+            timestamp: pythonResponse.data.timestamp
+          }
+        });
+      } else {
+        throw new Error('Python service returned error');
+      }
+    } catch (pythonError) {
+      console.error('Python SIP service error:', pythonError.message);
+      console.log('Falling back to basic SIP recommendations...');
+      
+      // Fallback to basic recommendations if Python service fails
+      const riskMap = { "low": 0.10, "moderate": 0.15, "aggressive": 0.20 };
+      const investmentPercentage = riskMap[riskLevel.toLowerCase()] || 0.15;
+      const monthlySip = Math.max(500, Math.round((annualIncome * investmentPercentage) / 12));
+
+      const fundRecommendations = await getSipRecommendations(annualIncome, horizonYears, riskLevel);
+
+      res.json({
+        success: true,
+        recommendation: {
+          monthlySip,
+          annualIncome,
+          horizonYears,
+          riskLevel,
+          fundRecommendations,
+          aiRecommendation: "AI recommendations temporarily unavailable. Showing basic fund recommendations.",
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+  } catch (error) {
+    console.error('SIP recommendation error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate SIP recommendations'
+    });
+  }
+});
+
+// Helper function to get SIP recommendations
+async function getSipRecommendations(annualIncome, horizonYears, riskLevel) {
+  try {
+    // Fetch mutual funds from mfapi.in
+    const fundsResponse = await axios.get('https://api.mfapi.in/mf', { timeout: 10000 });
+    const allFunds = fundsResponse.data;
+
+    if (!allFunds || allFunds.length === 0) {
+      return {
+        error: 'Unable to fetch mutual fund data',
+        recommendations: []
+      };
+    }
+
+    // Filter funds based on risk level
+    let keywords = [];
+    if (riskLevel === "aggressive") {
+      keywords = ['Small Cap', 'Midcap', 'Sectoral', 'Thematic', 'Technology', 'Infra'];
+    } else if (riskLevel === 'moderate') {
+      keywords = ['Flexi Cap', 'Large & Mid Cap', 'Multi Cap', 'Hybrid', 'Balanced Advantage', 'Value'];
+    } else { // 'low' risk
+      keywords = ['Debt', 'Liquid', 'Gilt', 'Conservative', 'Corporate Bond', 'Short Duration'];
+    }
+
+    const filteredFunds = allFunds.filter(fund => 
+      keywords.some(keyword => 
+        fund.schemeName.toLowerCase().includes(keyword.toLowerCase())
+      )
+    );
+
+    // Select top 3 funds for recommendation
+    const sampleSize = Math.min(3, filteredFunds.length);
+    const selectedFunds = filteredFunds.slice(0, sampleSize);
+
+    // Generate recommendations
+    const recommendations = selectedFunds.map((fund, index) => ({
+      rank: index + 1,
+      schemeName: fund.schemeName,
+      schemeCode: fund.schemeCode,
+      category: getFundCategory(fund.schemeName),
+      reason: getRecommendationReason(fund, riskLevel, horizonYears),
+      suitability: riskLevel
+    }));
+
+    return {
+      totalFunds: allFunds.length,
+      filteredFunds: filteredFunds.length,
+      recommendations
+    };
+  } catch (error) {
+    console.error('Error fetching SIP recommendations:', error);
+    return {
+      error: 'Failed to fetch fund data',
+      recommendations: []
+    };
+  }
+}
+
+// Helper function to determine fund category
+function getFundCategory(schemeName) {
+  const name = schemeName.toLowerCase();
+  if (name.includes('small cap')) return 'Small Cap';
+  if (name.includes('midcap')) return 'Mid Cap';
+  if (name.includes('large cap')) return 'Large Cap';
+  if (name.includes('flexi cap')) return 'Flexi Cap';
+  if (name.includes('balanced')) return 'Balanced';
+  if (name.includes('debt')) return 'Debt';
+  if (name.includes('liquid')) return 'Liquid';
+  if (name.includes('gilt')) return 'Gilt';
+  return 'Multi Cap';
+}
+
+// Helper function to generate recommendation reason
+function getRecommendationReason(fund, riskLevel, horizonYears) {
+  const category = getFundCategory(fund.schemeName);
+  
+  if (riskLevel === 'low') {
+    return `This ${category} fund is suitable for conservative investors seeking capital preservation with moderate returns over ${horizonYears} years.`;
+  } else if (riskLevel === 'moderate') {
+    return `This ${category} fund offers a balanced approach between growth and stability, ideal for ${horizonYears}-year investment horizon with moderate risk tolerance.`;
+  } else {
+    return `This ${category} fund is designed for aggressive investors seeking higher returns over ${horizonYears} years, with higher risk tolerance.`;
+  }
+}
+
+// Get SIP calculation details
+app.post('/api/sip/calculate', authMiddleware, async (req, res) => {
+  try {
+    const { monthlySip, horizonYears, expectedReturn = 12 } = req.body;
+    
+    if (!monthlySip || !horizonYears) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: monthlySip, horizonYears'
+      });
+    }
+
+    // Calculate SIP returns
+    const totalMonths = horizonYears * 12;
+    const monthlyRate = expectedReturn / 100 / 12;
+    
+    // Future Value of SIP formula: FV = P * [((1 + r)^n - 1) / r] * (1 + r)
+    const futureValue = monthlySip * (((Math.pow(1 + monthlyRate, totalMonths) - 1) / monthlyRate) * (1 + monthlyRate));
+    const totalInvested = monthlySip * totalMonths;
+    const totalGains = futureValue - totalInvested;
+    const returnPercentage = ((futureValue - totalInvested) / totalInvested) * 100;
+
+    // Calculate year-wise projections
+    const yearlyProjections = [];
+    for (let year = 1; year <= horizonYears; year++) {
+      const months = year * 12;
+      const yearFutureValue = monthlySip * (((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate) * (1 + monthlyRate));
+      const yearInvested = monthlySip * months;
+      const yearGains = yearFutureValue - yearInvested;
+      
+      yearlyProjections.push({
+        year,
+        invested: yearInvested,
+        value: yearFutureValue,
+        gains: yearGains,
+        returnPercentage: ((yearGains / yearInvested) * 100)
+      });
+    }
+
+    res.json({
+      success: true,
+      calculation: {
+        monthlySip,
+        horizonYears,
+        expectedReturn,
+        totalInvested,
+        futureValue,
+        totalGains,
+        returnPercentage,
+        yearlyProjections
+      }
+    });
+  } catch (error) {
+    console.error('SIP calculation error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to calculate SIP returns'
+    });
+  }
+});
+
 // Health check route
 app.get('/api/health', (req, res) => {
   res.json({ 
@@ -1305,6 +1913,7 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     features: {
       ai_plan_generation: 'available',
+      sip_recommendations: 'available',
       openai_configured: !!(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your-openai-api-key-here')
     }
   });
@@ -1374,7 +1983,32 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
 });
 
 
-app.listen(PORT, () => {
+// Start the main server
+const server = app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/api/health`);
+});
+
+// Start real-time stock server if not already running
+let realTimeServer = null;
+try {
+  const RealTimeStockServer = require('./realTimeStockServer.js');
+  realTimeServer = new RealTimeStockServer(5001); // Use different port for real-time server
+  realTimeServer.start();
+  console.log('Real-time stock server started on port 5001');
+} catch (error) {
+  console.log('Real-time stock server not available:', error.message);
+  console.log('Investment page will use fallback data');
+}
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  console.log('\nShutting down servers...');
+  if (realTimeServer) {
+    realTimeServer.stop();
+  }
+  server.close(() => {
+    console.log('Servers shut down successfully');
+    process.exit(0);
+  });
 }); 

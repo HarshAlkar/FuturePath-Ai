@@ -74,6 +74,36 @@ const userSchema = new mongoose.Schema({
       default: 0,
     },
   },
+  // Onboarding fields
+  onboardingCompleted: {
+    type: Boolean,
+    default: false,
+  },
+  onboardingDate: {
+    type: Date,
+    default: null,
+  },
+  surveyAnswers: {
+    type: Object,
+    default: {},
+  },
+  defaultDataCreated: {
+    type: Boolean,
+    default: false,
+  },
+  // User profile fields for survey selection
+  age: {
+    type: Number,
+    default: null,
+  },
+  occupation: {
+    type: String,
+    default: '',
+  },
+  employmentStatus: {
+    type: String,
+    default: '',
+  },
   createdAt: {
     type: Date,
     default: Date.now,

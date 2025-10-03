@@ -431,51 +431,6 @@ class OCRService {
     return enhanced;
   }
 
-  // Test function to verify OCR functionality
-  async testOCRFunctionality() {
-    console.log('Testing OCR functionality...');
-    
-    try {
-      // Test with a simple text-based receipt
-      const testReceiptText = `
-        NAVRATNA
-        Receipt #12345
-        Date: 15/12/2023
-        
-        Groceries         ₹25.99
-        Electronics       ₹150.00
-        Clothing          ₹45.50
-        
-        Subtotal:         ₹221.49
-        Tax:              ₹17.72
-        Total:            ₹239.21
-        
-        Payment: Credit Card
-      `;
-      
-      const parsedData = this.parseReceiptText(testReceiptText);
-      console.log('Test receipt parsing result:', parsedData);
-      
-      const validation = await this.validateReceiptData(parsedData);
-      console.log('Test validation result:', validation);
-      
-      const enhanced = await this.enhanceReceiptData(parsedData);
-      console.log('Test enhanced data:', enhanced);
-      
-      return {
-        success: true,
-        parsedData,
-        validation,
-        enhanced
-      };
-    } catch (error) {
-      console.error('OCR test failed:', error);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
 }
 
 export default new OCRService(); 

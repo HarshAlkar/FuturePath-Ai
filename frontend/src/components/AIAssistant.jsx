@@ -46,7 +46,6 @@ const AIAssistant = () => {
       { en: 'Logout', hi: 'लॉगआउट', category: 'nav', action: 'logout' },
       { en: 'Help', hi: 'मदद', category: 'help', action: 'help' },
       { en: 'Scan receipt', hi: 'रसीद स्कैन करो', category: 'ocr', action: 'ocr' },
-      { en: 'Test OCR', hi: 'OCR टेस्ट करो', category: 'ocr', action: 'test-ocr' },
       { en: 'Stock market analysis', hi: 'शेयर मार्केट विश्लेषण', category: 'stock', action: 'stock-analysis' },
       { en: 'Which stocks to buy', hi: 'कौन से शेयर खरीदें', category: 'stock', action: 'stock-recommendations' },
       { en: 'Market trends today', hi: 'आज के मार्केट ट्रेंड', category: 'stock', action: 'market-trends' },
@@ -167,40 +166,6 @@ const AIAssistant = () => {
   };
 
   // OCR Integration
-  const handleOCRScan = async () => {
-    try {
-      setIsProcessing(true);
-      setFeedback(language === 'hi-IN' ? 'OCR टेस्ट कर रहा हूँ...' : 'Testing OCR...');
-      
-      const result = await ocrService.testOCRFunctionality();
-      
-      if (result.success) {
-        const msg = language === 'hi-IN' 
-          ? `OCR टेस्ट सफल! वेंडर: ${result.enhanced.vendor}, कुल: ₹${result.enhanced.total}`
-          : `OCR test successful! Vendor: ${result.enhanced.vendor}, Total: ₹${result.enhanced.total}`;
-        
-        setConversation((conv) => [...conv, { from: 'ai', text: msg }]);
-        speak(msg, language);
-      } else {
-        const errorMsg = language === 'hi-IN' 
-          ? 'OCR टेस्ट में समस्या आई। कृपया फिर से कोशिश करें।'
-          : 'OCR test encountered an issue. Please try again.';
-        
-        setConversation((conv) => [...conv, { from: 'ai', text: errorMsg }]);
-        speak(errorMsg, language);
-      }
-    } catch (error) {
-      const errorMsg = language === 'hi-IN' 
-        ? 'OCR टेस्ट में त्रुटि हुई।'
-        : 'Error occurred during OCR test.';
-      
-      setConversation((conv) => [...conv, { from: 'ai', text: errorMsg }]);
-      speak(errorMsg, language);
-    } finally {
-      setIsProcessing(false);
-      setFeedback('');
-    }
-  };
 
   const handleReceiptScan = () => {
     if (fileInputRef.current) {
@@ -299,9 +264,7 @@ const AIAssistant = () => {
     if (command.includes('scan') || command.includes('receipt') || command.includes('ocr') ||
         command.includes('स्कैन') || command.includes('रसीद') || command.includes('ओसीआर')) {
       
-      if (command.includes('test') || command.includes('टेस्ट')) {
-        await handleOCRScan();
-      } else {
+      if (command.includes('scan') || command.includes('स्कैन') || command.includes('रसीद') || command.includes('ओसीआर')) {
         handleReceiptScan();
       }
       return;
@@ -423,9 +386,6 @@ const AIAssistant = () => {
         break;
       case 'ocr':
         handleReceiptScan();
-        break;
-      case 'test-ocr':
-        await handleOCRScan();
         break;
       case 'stock-analysis':
         const analysis = await getStockAnalysis('analysis');
