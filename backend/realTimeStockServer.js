@@ -438,6 +438,9 @@ class RealTimeStockServer {
   }
 }
 
+// Export the class for use in other modules
+export default RealTimeStockServer;
+
 // Start server if this file is run directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   const server = new RealTimeStockServer();
@@ -450,5 +453,3 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(0);
   });
 }
-
-export default RealTimeStockServer;

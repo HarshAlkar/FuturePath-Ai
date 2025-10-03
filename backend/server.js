@@ -1992,7 +1992,7 @@ const server = app.listen(PORT, () => {
 // Start real-time stock server if not already running
 let realTimeServer = null;
 try {
-  const RealTimeStockServer = require('./realTimeStockServer.js');
+  const { default: RealTimeStockServer } = await import('./realTimeStockServer.js');
   realTimeServer = new RealTimeStockServer(5001); // Use different port for real-time server
   realTimeServer.start();
   console.log('Real-time stock server started on port 5001');
