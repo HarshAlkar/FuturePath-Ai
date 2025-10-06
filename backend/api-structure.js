@@ -14,7 +14,7 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://localhost:5173"],
+    origin: ["http://localhost:3000", "http://localhost:5173", "https://futurepath-ai.netlify.app"],
     methods: ["GET", "POST", "PUT", "DELETE"]
   }
 });
@@ -40,9 +40,10 @@ const redis = new Redis({
 });
 
 // Middleware
+app.set('trust proxy', 1); // Trust proxy for Render
 app.use(helmet());
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:5173"],
+  origin: ["http://localhost:3000", "http://localhost:5173", "https://futurepath-ai.netlify.app"],
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -52,7 +53,9 @@ app.use(express.urlencoded({ extended: true }));
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use('/api/', limiter);
 
