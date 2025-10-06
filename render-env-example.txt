@@ -1,0 +1,63 @@
+# Render Environment Variables Template
+# Copy these to your Render service environment variables
+
+# ===========================================
+# MAIN BACKEND SERVICE (futurepath-backend)
+# ===========================================
+NODE_ENV=production
+PORT=5000
+JWT_SECRET=your-secure-jwt-secret-here-change-this
+OPENAI_API_KEY=your-openai-api-key-here
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/futurepath_ai
+REDIS_URL=redis://username:password@host:port
+
+# ===========================================
+# REAL-TIME STOCK SERVICE (futurepath-realtime)
+# ===========================================
+NODE_ENV=production
+PORT=5001
+REDIS_URL=redis://username:password@host:port
+
+# ===========================================
+# SIP ADVISOR SERVICE (futurepath-sip)
+# ===========================================
+PORT=5002
+GEMINI_API_KEY=your-gemini-api-key-here
+
+# ===========================================
+# GOLD SERVICE (futurepath-gold)
+# ===========================================
+NODE_ENV=production
+PORT=5003
+REDIS_URL=redis://username:password@host:port
+
+# ===========================================
+# STOCK ADVISOR SERVICE (futurepath-stock-advisor)
+# ===========================================
+PORT=5004
+OPENAI_API_KEY=your-openai-api-key-here
+
+# ===========================================
+# NETLIFY FRONTEND ENVIRONMENT VARIABLES
+# ===========================================
+VITE_API_URL=https://futurepath-backend.onrender.com
+VITE_WS_URL=wss://futurepath-realtime.onrender.com
+
+# ===========================================
+# DATABASE SETUP INSTRUCTIONS
+# ===========================================
+# 1. MongoDB Atlas:
+#    - Go to https://mongodb.com/cloud/atlas
+#    - Create free cluster
+#    - Get connection string
+#    - Replace MONGODB_URI above
+#
+# 2. Redis Cloud:
+#    - Go to https://redis.com/redis-enterprise-cloud
+#    - Create free database
+#    - Get connection string
+#    - Replace REDIS_URL above
+#
+# 3. API Keys:
+#    - OpenAI: https://platform.openai.com/api-keys
+#    - Gemini: https://makersuite.google.com/app/apikey

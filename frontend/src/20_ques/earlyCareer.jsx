@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { CheckCircle, Edit3, Send } from "lucide-react";
+import { CheckCircle, Edit3, Send, ArrowLeft, Home } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 // Main App Component
 function App() {
@@ -12,6 +13,7 @@ const SalariedFinancialSurvey = ({ onComplete }) => {
   // State to hold the answers and submission status
   const [answers, setAnswers] = useState({});
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const navigate = useNavigate();
 
   // The list of questions for the survey
   const questions = [

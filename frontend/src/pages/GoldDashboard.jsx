@@ -30,8 +30,6 @@ const GoldDashboard = () => {
   const [chartData, setChartData] = useState([]);
 
   const API_BASE = 'http://localhost:5001/api';
-  const GOLD_API_KEY = 'goldapi-2o6kcnwqjpqrk-io'; // Free API key
-  const METALS_API_BASE = 'https://api.metals.live/v1/spot';
 
   useEffect(() => {
     // Initialize with real Indian market data
@@ -50,118 +48,35 @@ const GoldDashboard = () => {
   const fetchRealGoldPrices = async () => {
     try {
       setIsLoading(true);
+      console.log('Fetching gold prices from:', `${API_BASE}/gold/prices`);
       
-      // Fetch current USD to INR rate
-      const forexResponse = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
-      const forexData = await forexResponse.json();
-      const usdToInr = forexData.rates.INR || 83.25;
-      
-      // Fetch real gold prices from multiple sources
-      const goldResponse = await fetch('https://api.metals.live/v1/spot/gold');
-      const silverResponse = await fetch('https://api.metals.live/v1/spot/silver');
-      const platinumResponse = await fetch('https://api.metals.live/v1/spot/platinum');
-      const palladiumResponse = await fetch('https://api.metals.live/v1/spot/palladium');
-      
-      const [goldData, silverData, platinumData, palladiumData] = await Promise.all([
-        goldResponse.json(),
-        silverResponse.json(),
-        platinumResponse.json(),
-        palladiumResponse.json()
-      ]);
-      
-      // Calculate Indian market prices (per 10 grams for gold, as is standard in India)
-      const goldPricePerOz = goldData[0]?.price || 2045.50;
-      const silverPricePerOz = silverData[0]?.price || 24.85;
-      const platinumPricePerOz = platinumData[0]?.price || 1015.75;
-      const palladiumPricePerOz = palladiumData[0]?.price || 1485.20;
-      
-      // Convert to Indian standard (10 grams for gold, 1 kg for silver)
-      const goldPricePer10g = (goldPricePerOz * usdToInr) / 31.1035 * 10; // 1 oz = 31.1035 grams
-      const silverPricePerKg = (silverPricePerOz * usdToInr) / 31.1035 * 1000;
-      
-      const realPrices = [
-        {
-          symbol: 'XAU',
-          name: 'Gold',
-          price: goldPricePer10g, // Price per 10 grams in INR
-          currency: 'INR',
-          unit: '10g',
-          change24h: (goldData[0]?.change || 12.30) * usdToInr / 31.1035 * 10,
-          changePercent24h: goldData[0]?.change_percent || 0.61,
-          high24h: goldPricePer10g * 1.005, // Approximate high
-          low24h: goldPricePer10g * 0.995, // Approximate low
-          volume: 125000,
-          marketCap: goldPricePer10g * 1000000,
-          timestamp: new Date(),
-          source: 'live'
+      // Use backend API instead of external APIs
+      const response = await fetch(`${API_BASE}/gold/prices`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        {
-          symbol: 'XAG',
-          name: 'Silver',
-          price: silverPricePerKg, // Price per kg in INR
-          currency: 'INR',
-          unit: 'kg',
-          change24h: (silverData[0]?.change || -0.45) * usdToInr / 31.1035 * 1000,
-          changePercent24h: silverData[0]?.change_percent || -1.78,
-          high24h: silverPricePerKg * 1.01,
-          low24h: silverPricePerKg * 0.99,
-          volume: 85000,
-          marketCap: silverPricePerKg * 100000,
-          timestamp: new Date(),
-          source: 'live'
-        },
-        {
-          symbol: 'XPT',
-          name: 'Platinum',
-          price: platinumPricePerOz * usdToInr,
-          currency: 'INR',
-          unit: 'oz',
-          change24h: (platinumData[0]?.change || 8.25) * usdToInr,
-          changePercent24h: platinumData[0]?.change_percent || 0.82,
-          high24h: (platinumPricePerOz * usdToInr) * 1.01,
-          low24h: (platinumPricePerOz * usdToInr) * 0.99,
-          volume: 45000,
-          marketCap: (platinumPricePerOz * usdToInr) * 50000,
-          timestamp: new Date(),
-          source: 'live'
-        },
-        {
-          symbol: 'XPD',
-          name: 'Palladium',
-          price: palladiumPricePerOz * usdToInr,
-          currency: 'INR',
-          unit: 'oz',
-          change24h: (palladiumData[0]?.change || -15.80) * usdToInr,
-          changePercent24h: palladiumData[0]?.change_percent || -1.05,
-          high24h: (palladiumPricePerOz * usdToInr) * 1.015,
-          low24h: (palladiumPricePerOz * usdToInr) * 0.985,
-          volume: 32000,
-          marketCap: (palladiumPricePerOz * usdToInr) * 40000,
-          timestamp: new Date(),
-          source: 'live'
-        }
-      ];
-      
-      setGoldPrices(realPrices);
-      
-      // Generate chart data for the selected time range
-      generateChartData(goldPricePer10g, selectedTimeRange);
-      
-      // Update market analysis based on real data
-      const goldTrend = goldData[0]?.change_percent > 0 ? 'bullish' : goldData[0]?.change_percent < -1 ? 'bearish' : 'neutral';
-      setMarketAnalysis({
-        symbol: 'XAU',
-        trend: goldTrend,
-        volatility: Math.abs(goldData[0]?.change_percent || 2.3),
-        support: goldPricePer10g * 0.98,
-        resistance: goldPricePer10g * 1.02,
-        prediction: `Current market sentiment is ${goldTrend}. Gold prices in India are ${goldData[0]?.change_percent > 0 ? 'rising' : 'declining'} based on international markets.`,
-        confidence: 85,
-        lastUpdated: new Date()
+        signal: AbortSignal.timeout(10000) // 10 second timeout
       });
       
-      setIsLoading(false);
-      toast.success('✅ Real Indian market prices updated!');
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Response data:', data);
+      
+      if (data.success) {
+        setGoldPrices(data.data);
+        setIsLoading(false);
+        toast.success('✅ Real Indian market prices updated!');
+        return;
+      } else {
+        throw new Error(data.message || 'Failed to fetch prices');
+      }
       
     } catch (error) {
       console.error('Error fetching real gold prices:', error);
@@ -169,6 +84,7 @@ const GoldDashboard = () => {
       
       // Fallback to mock data if API fails
       initializeFallbackData();
+      setIsLoading(false);
     }
   };
   
@@ -426,9 +342,36 @@ const GoldDashboard = () => {
   ];
 
   const handleBuyGold = (metalSymbol, metalName) => {
-    // Show trading app selection modal
-    setSelectedMetal({ symbol: metalSymbol, name: metalName });
-    setShowTradingModal(true);
+    // Find the metal data from goldPrices
+    const metalData = goldPrices.find(metal => metal.symbol === metalSymbol);
+    
+    if (metalData) {
+      // Navigate to buying page with metal data
+      navigate('/gold-buy', { 
+        state: { 
+          metal: {
+            symbol: metalData.symbol,
+            name: metalData.name,
+            price: metalData.price,
+            currency: metalData.currency,
+            unit: metalData.unit
+          }
+        } 
+      });
+    } else {
+      // Fallback if metal data not found
+      navigate('/gold-buy', { 
+        state: { 
+          metal: {
+            symbol: metalSymbol,
+            name: metalName,
+            price: 68500, // Default gold price
+            currency: 'INR',
+            unit: '10g'
+          }
+        } 
+      });
+    }
   };
 
   const openTradingApp = (appUrl, appName) => {

@@ -1,411 +1,389 @@
-import React, { useState, useEffect } from 'react';
-import { BarChart3, Settings as SettingsIcon, User, Bell, Shield, CreditCard, Globe, Moon, Sun } from 'lucide-react';
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { 
+  Settings as SettingsIcon, Bell, Shield, User, 
+  CreditCard, Globe, Moon, Sun, LogOut, Save,
+  Eye, EyeOff, Lock, Key, Smartphone, Mail,
+  ArrowLeft, Home
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import MainDashboardNavbar from './main_dashboard_navbar';
-import userService from '../services/userService';
-import authService from '../services/authService';
 
 const Settings = () => {
-  const [activeTab, setActiveTab] = useState('profile');
-  const [darkMode, setDarkMode] = useState(false);
-  const [notifications, setNotifications] = useState(true);
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
-  const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    currency: 'INR',
-    language: 'en',
-    timezone: 'IST'
+  const [activeTab, setActiveTab] = useState('general');
+  const navigate = useNavigate();
+  const [settings, setSettings] = useState({
+    notifications: {
+      email: true,
+      push: true,
+      sms: false,
+      marketing: false
+    },
+    privacy: {
+      profileVisibility: 'private',
+      dataSharing: false,
+      analytics: true
+    },
+    security: {
+      twoFactor: false,
+      biometric: true,
+      sessionTimeout: 30
+    },
+    appearance: {
+      theme: 'light',
+      language: 'en',
+      currency: 'INR'
+    }
   });
 
-  // Fetch user data on component mount
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        setLoading(true);
-        const userData = await userService.getCurrentUser();
-        setUser(userData);
-        setFormData({
-          fullName: userData?.fullName || '',
-          email: userData?.email || '',
-          phone: userData?.phone || '',
-          currency: userData?.currency || 'INR',
-          language: userData?.language || 'en',
-          timezone: userData?.timezone || 'IST'
-        });
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUserData();
-  }, []);
-
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
+  const handleSettingChange = (category, setting, value) => {
+    setSettings(prev => ({
       ...prev,
-      [field]: value
+      [category]: {
+        ...prev[category],
+        [setting]: value
+      }
     }));
   };
 
-  const handleSaveProfile = async () => {
-    try {
-      setLoading(true);
-      await userService.updateUser(formData);
-      // Refresh user data
-      const updatedUser = await userService.getCurrentUser();
-      setUser(updatedUser);
-      alert('Profile updated successfully!');
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      alert('Failed to update profile. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+  const handleSave = () => {
+    localStorage.setItem('userSettings', JSON.stringify(settings));
+    alert('Settings saved successfully!');
   };
 
-  const handlePasswordChange = async (currentPassword, newPassword, confirmPassword) => {
-    if (newPassword !== confirmPassword) {
-      alert('New passwords do not match!');
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      await userService.changePassword(currentPassword, newPassword);
-      alert('Password changed successfully!');
-    } catch (error) {
-      console.error('Error changing password:', error);
-      alert('Failed to change password. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const settingsSections = [
-    {
-      id: 'profile',
-      title: 'Profile Settings',
-      icon: User,
-      description: 'Manage your personal information and account details'
-    },
-    {
-      id: 'notifications',
-      title: 'Notifications',
-      icon: Bell,
-      description: 'Configure your notification preferences'
-    },
-    {
-      id: 'security',
-      title: 'Security',
-      icon: Shield,
-      description: 'Manage your account security settings'
-    },
-    {
-      id: 'billing',
-      title: 'Billing & Payments',
-      icon: CreditCard,
-      description: 'Manage your billing information and payment methods'
-    },
-    {
-      id: 'preferences',
-      title: 'Preferences',
-      icon: SettingsIcon,
-      description: 'Customize your app preferences and settings'
-    }
+  const tabs = [
+    { id: 'general', label: 'General', icon: SettingsIcon },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'privacy', label: 'Privacy', icon: Shield },
+    { id: 'security', label: 'Security', icon: Lock },
+    { id: 'appearance', label: 'Appearance', icon: Sun }
   ];
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading settings...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <MainDashboardNavbar />
-
-      {/* Main Content */}
+      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header Section */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-          <p className="text-gray-600 mt-2">Manage your account preferences and settings</p>
+        {/* Navigation Header */}
+        <div className="flex items-center justify-between mb-8">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>Back to Dashboard</span>
+          </button>
+          <button
+            onClick={() => navigate('/profile')}
+            className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 transition-colors"
+          >
+            <Home className="w-5 h-5" />
+            <span>Profile</span>
+          </button>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+          <p className="text-gray-600 mt-2">Manage your account settings and preferences</p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Sidebar */}
-          <div className="lg:w-1/3">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Settings</h2>
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-xl shadow-lg p-6">
               <nav className="space-y-2">
-                {settingsSections.map((section) => {
-                  const Icon = section.icon;
-                  return (
-                    <button
-                      key={section.id}
-                      onClick={() => setActiveTab(section.id)}
-                      className={`w-full flex items-center space-x-3 p-3 rounded-lg text-left transition-colors ${
-                        activeTab === section.id
-                          ? 'bg-blue-50 text-blue-600 border border-blue-200'
-                          : 'text-gray-600 hover:bg-gray-50'
-                      }`}
-                    >
-                      <Icon className="w-5 h-5" />
-                      <div>
-                        <p className="font-medium">{section.title}</p>
-                        <p className="text-sm text-gray-500">{section.description}</p>
-                      </div>
-                    </button>
-                  );
-                })}
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
+                      activeTab === tab.id
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <tab.icon className="w-5 h-5" />
+                    <span className="font-medium">{tab.label}</span>
+                  </button>
+                ))}
               </nav>
             </div>
           </div>
 
-          {/* Main Content Area */}
-          <div className="lg:w-2/3">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              {activeTab === 'profile' && (
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-6">Profile Settings</h2>
-                  <div className="space-y-6">
+          {/* Content */}
+          <div className="lg:col-span-3">
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              {/* General Settings */}
+              {activeTab === 'general' && (
+                <div className="space-y-6">
+                  <h2 className="text-xl font-bold text-gray-900 mb-6">General Settings</h2>
+                  
+                  <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Full Name
+                        Display Name
                       </label>
                       <input
                         type="text"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter your full name"
-                        value={formData.fullName}
-                        onChange={(e) => handleInputChange('fullName', e.target.value)}
+                        defaultValue="Harsh Alkar"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
+                    
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Email Address
                       </label>
                       <input
                         type="email"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter your email"
-                        value={formData.email}
-                        onChange={(e) => handleInputChange('email', e.target.value)}
+                        defaultValue="harsh@example.com"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
+                    
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Phone Number
                       </label>
                       <input
                         type="tel"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter your phone number"
-                        value={formData.phone}
-                        onChange={(e) => handleInputChange('phone', e.target.value)}
+                        defaultValue="+91 9876543210"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Notifications */}
+              {activeTab === 'notifications' && (
+                <div className="space-y-6">
+                  <h2 className="text-xl font-bold text-gray-900 mb-6">Notification Settings</h2>
+                  
+                  <div className="space-y-4">
+                    {Object.entries(settings.notifications).map(([key, value]) => (
+                      <div key={key} className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium text-gray-900 capitalize">
+                            {key.replace(/([A-Z])/g, ' $1').trim()}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {key === 'email' && 'Receive email notifications'}
+                            {key === 'push' && 'Receive push notifications'}
+                            {key === 'sms' && 'Receive SMS notifications'}
+                            {key === 'marketing' && 'Receive marketing emails'}
+                          </div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={value}
+                            onChange={(e) => handleSettingChange('notifications', key, e.target.checked)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Privacy */}
+              {activeTab === 'privacy' && (
+                <div className="space-y-6">
+                  <h2 className="text-xl font-bold text-gray-900 mb-6">Privacy Settings</h2>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Profile Visibility
+                      </label>
+                      <select
+                        value={settings.privacy.profileVisibility}
+                        onChange={(e) => handleSettingChange('privacy', 'profileVisibility', e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="public">Public</option>
+                        <option value="private">Private</option>
+                        <option value="friends">Friends Only</option>
+                      </select>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-gray-900">Data Sharing</div>
+                        <div className="text-sm text-gray-600">Allow sharing of anonymized data for research</div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={settings.privacy.dataSharing}
+                          onChange={(e) => handleSettingChange('privacy', 'dataSharing', e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-gray-900">Analytics</div>
+                        <div className="text-sm text-gray-600">Help improve our service with usage analytics</div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={settings.privacy.analytics}
+                          onChange={(e) => handleSettingChange('privacy', 'analytics', e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Security */}
+              {activeTab === 'security' && (
+                <div className="space-y-6">
+                  <h2 className="text-xl font-bold text-gray-900 mb-6">Security Settings</h2>
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-gray-900">Two-Factor Authentication</div>
+                        <div className="text-sm text-gray-600">Add an extra layer of security to your account</div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={settings.security.twoFactor}
+                          onChange={(e) => handleSettingChange('security', 'twoFactor', e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-gray-900">Biometric Authentication</div>
+                        <div className="text-sm text-gray-600">Use fingerprint or face recognition</div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={settings.security.biometric}
+                          onChange={(e) => handleSettingChange('security', 'biometric', e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Session Timeout (minutes)
+                      </label>
+                      <select
+                        value={settings.security.sessionTimeout}
+                        onChange={(e) => handleSettingChange('security', 'sessionTimeout', parseInt(e.target.value))}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value={15}>15 minutes</option>
+                        <option value={30}>30 minutes</option>
+                        <option value={60}>1 hour</option>
+                        <option value={120}>2 hours</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Appearance */}
+              {activeTab === 'appearance' && (
+                <div className="space-y-6">
+                  <h2 className="text-xl font-bold text-gray-900 mb-6">Appearance Settings</h2>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Theme
+                      </label>
+                      <div className="flex space-x-4">
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="theme"
+                            value="light"
+                            checked={settings.appearance.theme === 'light'}
+                            onChange={(e) => handleSettingChange('appearance', 'theme', e.target.value)}
+                            className="mr-2"
+                          />
+                          <Sun className="w-5 h-5 mr-2" />
+                          Light
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="theme"
+                            value="dark"
+                            checked={settings.appearance.theme === 'dark'}
+                            onChange={(e) => handleSettingChange('appearance', 'theme', e.target.value)}
+                            className="mr-2"
+                          />
+                          <Moon className="w-5 h-5 mr-2" />
+                          Dark
+                        </label>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Language
+                      </label>
+                      <select
+                        value={settings.appearance.language}
+                        onChange={(e) => handleSettingChange('appearance', 'language', e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="en">English</option>
+                        <option value="hi">Hindi</option>
+                        <option value="ta">Tamil</option>
+                        <option value="te">Telugu</option>
+                      </select>
+                    </div>
+                    
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Currency
                       </label>
-                      <select 
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={formData.currency}
-                        onChange={(e) => handleInputChange('currency', e.target.value)}
+                      <select
+                        value={settings.appearance.currency}
+                        onChange={(e) => handleSettingChange('appearance', 'currency', e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="INR">Indian Rupee (₹)</option>
                         <option value="USD">US Dollar ($)</option>
                         <option value="EUR">Euro (€)</option>
                       </select>
                     </div>
-                    <button 
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
-                      onClick={handleSaveProfile}
-                      disabled={loading}
-                    >
-                      {loading ? 'Saving...' : 'Save Changes'}
-                    </button>
                   </div>
                 </div>
               )}
 
-              {activeTab === 'notifications' && (
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-6">Notification Settings</h2>
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium text-gray-900">Push Notifications</h3>
-                        <p className="text-sm text-gray-500">Receive notifications on your device</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={notifications}
-                          onChange={(e) => setNotifications(e.target.checked)}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                      </label>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium text-gray-900">Email Notifications</h3>
-                        <p className="text-sm text-gray-500">Receive notifications via email</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                      </label>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium text-gray-900">SMS Notifications</h3>
-                        <p className="text-sm text-gray-500">Receive notifications via SMS</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'security' && (
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-6">Security Settings</h2>
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="font-medium text-gray-900 mb-2">Change Password</h3>
-                      <div className="space-y-4">
-                        <input
-                          type="password"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Current password"
-                          id="currentPassword"
-                        />
-                        <input
-                          type="password"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="New password"
-                          id="newPassword"
-                        />
-                        <input
-                          type="password"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Confirm new password"
-                          id="confirmPassword"
-                        />
-                        <button 
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
-                          onClick={() => {
-                            const currentPassword = document.getElementById('currentPassword').value;
-                            const newPassword = document.getElementById('newPassword').value;
-                            const confirmPassword = document.getElementById('confirmPassword').value;
-                            handlePasswordChange(currentPassword, newPassword, confirmPassword);
-                          }}
-                          disabled={loading}
-                        >
-                          {loading ? 'Updating...' : 'Update Password'}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium text-gray-900">Two-Factor Authentication</h3>
-                        <p className="text-sm text-gray-500">Add an extra layer of security to your account</p>
-                      </div>
-                      <button className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm">
-                        Enable
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'billing' && (
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-6">Billing & Payments</h2>
-                  <div className="space-y-6">
-                    <div className="p-4 border border-gray-200 rounded-lg">
-                      <h3 className="font-medium text-gray-900 mb-2">Current Plan</h3>
-                      <p className="text-sm text-gray-600">Free Plan</p>
-                      <button className="mt-2 text-blue-600 text-sm hover:underline">
-                        Upgrade Plan
-                      </button>
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-gray-900 mb-2">Payment Methods</h3>
-                      <p className="text-sm text-gray-500 mb-4">No payment methods added</p>
-                      <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
-                        Add Payment Method
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'preferences' && (
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-6">Preferences</h2>
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium text-gray-900">Dark Mode</h3>
-                        <p className="text-sm text-gray-500">Switch between light and dark themes</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={darkMode}
-                          onChange={(e) => setDarkMode(e.target.checked)}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                      </label>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Language
-                      </label>
-                      <select 
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={formData.language}
-                        onChange={(e) => handleInputChange('language', e.target.value)}
-                      >
-                        <option value="en">English</option>
-                        <option value="hi">Hindi</option>
-                        <option value="es">Spanish</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Time Zone
-                      </label>
-                      <select 
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={formData.timezone}
-                        onChange={(e) => handleInputChange('timezone', e.target.value)}
-                      >
-                        <option value="IST">India Standard Time (IST)</option>
-                        <option value="UTC">UTC</option>
-                        <option value="EST">Eastern Standard Time (EST)</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* Save Button */}
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <button
+                  onClick={handleSave}
+                  className="flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Save className="w-5 h-5" />
+                  <span>Save Settings</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

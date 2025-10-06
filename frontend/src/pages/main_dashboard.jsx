@@ -96,12 +96,15 @@ const MainDashboard = () => {
       try {
         const response = await axios.get(url);
         if (response.data && response.data.values) {
+          // Get USD to INR exchange rate
+          const usdToInrRate = await getUSDToINRRate();
+          
           setStockData(
             response.data.values
               .reverse()
               .map(item => ({
                 time: item.datetime.slice(11, 16),
-                price: parseFloat(item.close)
+                price: parseFloat(item.close) * usdToInrRate // Convert USD to INR
               }))
           );
         }
@@ -110,6 +113,19 @@ const MainDashboard = () => {
     }
     setLoading(false);
   }, [symbol]);
+
+  // Get USD to INR exchange rate
+  const getUSDToINRRate = async () => {
+    try {
+      // Using a free exchange rate API
+      const response = await axios.get('https://api.exchangerate-api.com/v4/latest/USD');
+      return response.data.rates.INR;
+    } catch (error) {
+      console.error('Failed to fetch exchange rate:', error);
+      // Fallback to approximate rate if API fails
+      return 83.0; // Approximate USD to INR rate
+    }
+  };
 
   const fetchUserData = useCallback(async () => {
     try {
@@ -463,8 +479,18 @@ const MainDashboard = () => {
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={stockData}>
                     <XAxis dataKey="time" />
-                    <YAxis domain={['auto', 'auto']} />
-                    <Tooltip />
+                    <YAxis 
+                      domain={['auto', 'auto']} 
+                      tickFormatter={(value) => `₹${value.toLocaleString('en-IN')}`}
+                    />
+                    <Tooltip 
+                      formatter={(value) => [`₹${value.toLocaleString('en-IN')}`, 'Price']}
+                      labelStyle={{ color: '#000' }}
+                      contentStyle={{
+                        backgroundColor: '#fff',
+                        border: '1px solid #e5e7eb'
+                      }}
+                    />
                     <Line
                       type="monotone"
                       dataKey="price"
@@ -753,13 +779,6 @@ const MainDashboard = () => {
                   <span className="text-xs font-medium text-yellow-900">Gold Dashboard</span>
                 </button>
                 
-                <button 
-                  onClick={() => navigate('/indian-gold-dashboard')}
-                  className="flex flex-col items-center space-y-2 p-3 bg-orange-50 rounded-lg hover:bg-orange-100 transition-all transform hover:scale-105"
-                >
-                  <Crown className="w-6 h-6 text-orange-600" />
-                  <span className="text-xs font-medium text-orange-900">Indian Gold</span>
-                </button>
                 
                 <button 
                   onClick={() => handleQuickAction('reports')}

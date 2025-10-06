@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { CheckCircle, Edit3, Send } from "lucide-react";
+import { CheckCircle, Edit3, Send, ArrowLeft, Home } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 // Main App Component
 function App() {
@@ -12,6 +13,7 @@ const FinancialHealthSurvey = ({ onComplete }) => {
   // State to hold the answers and submission status
   const [answers, setAnswers] = useState({});
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const navigate = useNavigate();
 
   // The list of questions for the survey
   const questions = [
@@ -155,6 +157,24 @@ const FinancialHealthSurvey = ({ onComplete }) => {
   return (
     <div className="min-h-screen w-full bg-emerald-50 font-sans flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
       <div className="w-full max-w-3xl">
+        {/* Navigation Header */}
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center space-x-2 text-emerald-700 hover:text-emerald-900 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>Back to Dashboard</span>
+          </button>
+          <button
+            onClick={() => navigate('/profile')}
+            className="flex items-center space-x-2 text-emerald-700 hover:text-emerald-900 transition-colors"
+          >
+            <Home className="w-5 h-5" />
+            <span>Profile</span>
+          </button>
+        </div>
+        
         <header className="text-center mb-8">
           <h1 className="text-3xl sm:text-4xl font-bold text-emerald-800">Young Adult Financial Survey (18-30)</h1>
           <p className="text-md text-gray-600 mt-2">Help us understand your financial journey.</p>
@@ -174,13 +194,22 @@ const FinancialHealthSurvey = ({ onComplete }) => {
               <p className="text-gray-600 mb-8 max-w-md">
                 Thank you for completing the survey. Your responses have been successfully recorded.
               </p>
-              <button
-                onClick={handleEdit}
-                className="flex items-center gap-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold px-6 py-3 rounded-lg transition-all duration-300"
-              >
-                <Edit3 className="w-5 h-5" />
-                Edit My Answers
-              </button>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <button
+                  onClick={handleEdit}
+                  className="flex items-center gap-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold px-6 py-3 rounded-lg transition-all duration-300"
+                >
+                  <Edit3 className="w-5 h-5" />
+                  Edit My Answers
+                </button>
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-3 rounded-lg transition-all duration-300"
+                >
+                  <Home className="w-5 h-5" />
+                  Go to Dashboard
+                </button>
+              </div>
             </div>
           ) : (
             // Form View

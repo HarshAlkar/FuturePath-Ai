@@ -9,7 +9,7 @@ import {
   ChevronRight, ChevronDown, ExternalLink, Maximize2,
   Minimize2, RotateCcw, Save, Edit, Trash2, Heart,
   ThumbsUp, ThumbsDown, Flag, Bookmark, Tag, Filter,
-  Search, Grid, List, MoreHorizontal, MoreVertical
+  Search, Grid, List, MoreHorizontal, MoreVertical, User
 } from 'lucide-react';
 import MainDashboardNavbar from './main_dashboard_navbar';
 import AIAssistant from '../components/AIAssistant';
@@ -24,6 +24,20 @@ const SuperComplete = () => {
   const [showChatbot, setShowChatbot] = useState(false);
   const [showAdvisor, setShowAdvisor] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+    {
+      id: 1,
+      type: 'bot',
+      message: 'Hello! I\'m your AI financial assistant. How can I help you today?',
+      timestamp: new Date()
+    }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [selectedStock, setSelectedStock] = useState('');
+  const [predictionTimeframe, setPredictionTimeframe] = useState('1M');
+  const [stockPredictions, setStockPredictions] = useState([]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -36,6 +50,7 @@ const SuperComplete = () => {
     monthlyIncome: 75000,
     monthlyExpenses: 45000
   });
+  const [profileAnalysis, setProfileAnalysis] = useState(null);
 
   // Video content data
   const videoContent = [
@@ -179,6 +194,113 @@ const SuperComplete = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Load profile analysis
+  useEffect(() => {
+    const profileData = JSON.parse(localStorage.getItem('profileData') || 'null');
+    if (profileData) {
+      generateProfileAnalysis(profileData);
+    }
+  }, []);
+
+  // Generate profile analysis
+  const generateProfileAnalysis = (answers) => {
+    const analysis = {
+      riskProfile: calculateRiskProfile(answers),
+      investmentStrategy: generateInvestmentStrategy(answers),
+      recommendations: generateRecommendations(answers),
+      goals: extractGoals(answers),
+      riskScore: calculateRiskScore(answers),
+      experience: getExperienceLevel(answers)
+    };
+    setProfileAnalysis(analysis);
+  };
+
+  const calculateRiskProfile = (answers) => {
+    const riskAnswers = [answers[11], answers[12], answers[13], answers[14]];
+    const riskKeywords = {
+      'Very Conservative': 1,
+      'Conservative': 2,
+      'Moderate': 3,
+      'Aggressive': 4,
+      'Very Aggressive': 5
+    };
+    
+    const avgRisk = riskAnswers.reduce((sum, answer) => {
+      return sum + (riskKeywords[answer] || 3);
+    }, 0) / riskAnswers.length;
+
+    if (avgRisk <= 2) return 'Conservative';
+    if (avgRisk <= 3) return 'Moderate';
+    if (avgRisk <= 4) return 'Aggressive';
+    return 'Very Aggressive';
+  };
+
+  const generateInvestmentStrategy = (answers) => {
+    const riskProfile = calculateRiskProfile(answers);
+    const strategies = {
+      'Conservative': { equity: 30, debt: 60, gold: 10 },
+      'Moderate': { equity: 50, debt: 40, gold: 10 },
+      'Aggressive': { equity: 70, debt: 20, gold: 10 },
+      'Very Aggressive': { equity: 80, debt: 15, gold: 5 }
+    };
+    return strategies[riskProfile];
+  };
+
+  const generateRecommendations = (answers) => {
+    const recommendations = [];
+    const riskProfile = calculateRiskProfile(answers);
+    const experience = answers[13];
+
+    if (riskProfile === 'Conservative') {
+      recommendations.push({
+        title: 'Focus on Debt Instruments',
+        description: 'Consider FDs, government bonds, and debt mutual funds',
+        priority: 'high'
+      });
+    } else if (riskProfile === 'Aggressive' || riskProfile === 'Very Aggressive') {
+      recommendations.push({
+        title: 'Equity-Focused Portfolio',
+        description: 'Allocate more to equity mutual funds and direct stocks',
+        priority: 'high'
+      });
+    }
+
+    if (experience === 'No experience' || experience === 'Beginner (1-2 years)') {
+      recommendations.push({
+        title: 'Start with SIPs',
+        description: 'Begin with Systematic Investment Plans in mutual funds',
+        priority: 'high'
+      });
+    }
+
+    return recommendations;
+  };
+
+  const extractGoals = (answers) => {
+    return {
+      primary: answers[6],
+      timeHorizon: answers[7],
+      monthlyInvestment: answers[8]
+    };
+  };
+
+  const calculateRiskScore = (answers) => {
+    const riskFactors = [answers[11], answers[12], answers[13], answers[14], answers[15]];
+    let score = 0;
+    riskFactors.forEach(factor => {
+      if (factor?.includes('Very Aggressive') || factor?.includes('Buy more')) score += 5;
+      else if (factor?.includes('Aggressive') || factor?.includes('Hold and wait')) score += 4;
+      else if (factor?.includes('Moderate') || factor?.includes('Balanced')) score += 3;
+      else if (factor?.includes('Conservative') || factor?.includes('Sell some')) score += 2;
+      else if (factor?.includes('Very Conservative') || factor?.includes('Sell everything')) score += 1;
+    });
+    return Math.round((score / riskFactors.length) * 20);
+  };
+
+  const getExperienceLevel = (answers) => {
+    return answers[13] || 'No experience';
+  };
+
   // Video controls
   const handleVideoPlay = () => {
     setIsVideoPlaying(!isVideoPlaying);
@@ -197,6 +319,101 @@ const SuperComplete = () => {
   const addNotification = (notification) => {
     setNotifications(prev => [...prev, { ...notification, id: Date.now(), timestamp: new Date() }]);
   };
+
+  // Chatbot functionality
+  const handleSendMessage = async () => {
+    if (!chatInput.trim()) return;
+
+    const userMessage = {
+      id: Date.now(),
+      type: 'user',
+      message: chatInput,
+      timestamp: new Date()
+    };
+
+    setChatMessages(prev => [...prev, userMessage]);
+    setChatInput('');
+    setIsTyping(true);
+
+    // Simulate AI response
+    setTimeout(() => {
+      const responses = [
+        "Based on your portfolio, I recommend diversifying your investments across different sectors.",
+        "Your emergency fund looks good! Consider increasing your retirement contributions by 5%.",
+        "The current market conditions favor growth stocks. Would you like me to suggest some options?",
+        "I notice you're close to achieving your vacation goal. Great job on your financial discipline!",
+        "For your age and income level, a 60-40 stock-bond allocation would be optimal.",
+        "Your monthly savings rate of 40% is excellent! You're on track for early retirement.",
+        "Consider setting up automatic transfers to your investment accounts for consistent growth.",
+        "Based on your risk tolerance, I suggest adding some international diversification to your portfolio."
+      ];
+
+      const botResponse = {
+        id: Date.now() + 1,
+        type: 'bot',
+        message: responses[Math.floor(Math.random() * responses.length)],
+        timestamp: new Date()
+      };
+
+      setChatMessages(prev => [...prev, botResponse]);
+      setIsTyping(false);
+    }, 1500);
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  // Stock prediction functionality
+  const generateStockPrediction = async (symbol, timeframe) => {
+    setIsAnalyzing(true);
+    
+    // Simulate AI analysis
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    const basePrice = Math.random() * 200 + 50;
+    const volatility = Math.random() * 0.3 + 0.1;
+    const trend = Math.random() > 0.5 ? 1 : -1;
+    
+    const prediction = {
+      symbol: symbol.toUpperCase(),
+      currentPrice: basePrice,
+      predictedPrice: basePrice * (1 + trend * volatility),
+      confidence: Math.floor(Math.random() * 30) + 70,
+      timeframe: timeframe,
+      trend: trend > 0 ? 'Bullish' : 'Bearish',
+      riskLevel: volatility > 0.2 ? 'High' : volatility > 0.15 ? 'Medium' : 'Low',
+      recommendation: trend > 0 ? 'BUY' : 'SELL',
+      analysis: [
+        `Technical indicators show ${trend > 0 ? 'positive' : 'negative'} momentum`,
+        `Volume analysis suggests ${trend > 0 ? 'increasing' : 'decreasing'} interest`,
+        `Market sentiment is ${trend > 0 ? 'optimistic' : 'cautious'}`,
+        `Support/Resistance levels indicate ${trend > 0 ? 'upward' : 'downward'} pressure`
+      ],
+      timestamp: new Date()
+    };
+    
+    setStockPredictions(prev => [prediction, ...prev.slice(0, 4)]); // Keep last 5 predictions
+    setIsAnalyzing(false);
+    addNotification({ 
+      type: 'success', 
+      message: `Stock prediction for ${symbol} completed!` 
+    });
+  };
+
+  const popularStocks = [
+    { symbol: 'AAPL', name: 'Apple Inc.', sector: 'Technology' },
+    { symbol: 'TSLA', name: 'Tesla Inc.', sector: 'Automotive' },
+    { symbol: 'MSFT', name: 'Microsoft Corp.', sector: 'Technology' },
+    { symbol: 'GOOGL', name: 'Alphabet Inc.', sector: 'Technology' },
+    { symbol: 'AMZN', name: 'Amazon.com Inc.', sector: 'E-commerce' },
+    { symbol: 'NVDA', name: 'NVIDIA Corp.', sector: 'Technology' },
+    { symbol: 'META', name: 'Meta Platforms Inc.', sector: 'Social Media' },
+    { symbol: 'NFLX', name: 'Netflix Inc.', sector: 'Entertainment' }
+  ];
 
   // Quick actions
   const handleQuickAction = (action) => {
@@ -234,7 +451,7 @@ const SuperComplete = () => {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">
             <h1 className="text-4xl md:text-6xl font-bold text-white mb-6">
-              Super Complete
+              AI MASTER 
               <span className="block text-2xl md:text-3xl text-blue-200 mt-2">
                 Your All-in-One Financial Command Center
               </span>
@@ -245,11 +462,11 @@ const SuperComplete = () => {
             </p>
             <div className="flex flex-wrap justify-center gap-4">
               <button 
-                onClick={() => handleQuickAction('chatbot')}
+                onClick={() => setActiveTab('chatbot')}
                 className="bg-white text-blue-600 px-6 py-3 rounded-full font-semibold hover:bg-blue-50 transition-colors flex items-center space-x-2"
               >
-                <Bot className="w-5 h-5" />
-                <span>AI Assistant</span>
+                <MessageCircle className="w-5 h-5" />
+                <span>AI Chat</span>
               </button>
               <button 
                 onClick={() => handleQuickAction('advisor')}
@@ -315,6 +532,8 @@ const SuperComplete = () => {
                 { id: 'overview', label: 'Overview', icon: BarChart3 },
                 { id: 'investment', label: 'Investment', icon: TrendingUp },
                 { id: 'goals', label: 'Goals', icon: Target },
+                { id: 'profile', label: 'Profile Analysis', icon: User },
+                { id: 'chatbot', label: 'AI Chat', icon: MessageCircle },
                 { id: 'videos', label: 'Learn', icon: Play },
                 { id: 'advisor', label: 'AI Advisor', icon: Bot },
                 { id: 'help', label: 'Help', icon: HelpCircle }
@@ -556,6 +775,255 @@ const SuperComplete = () => {
             </div>
           )}
 
+          {/* Profile Analysis Tab */}
+          {activeTab === 'profile' && (
+            <div className="space-y-6">
+              {profileAnalysis ? (
+                <>
+                  {/* Risk Profile Analysis */}
+                  <div className="bg-white rounded-xl shadow-lg p-6">
+                    <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                      <Shield className="w-6 h-6 text-blue-600 mr-2" />
+                      Your Risk Profile Analysis
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <div className="text-sm text-gray-600 mb-2">Risk Level</div>
+                        <div className={`text-3xl font-bold ${
+                          profileAnalysis.riskProfile === 'Conservative' ? 'text-green-600' :
+                          profileAnalysis.riskProfile === 'Moderate' ? 'text-yellow-600' :
+                          profileAnalysis.riskProfile === 'Aggressive' ? 'text-orange-600' : 'text-red-600'
+                        }`}>
+                          {profileAnalysis.riskProfile}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-600 mb-2">Risk Score</div>
+                        <div className="text-3xl font-bold text-gray-900">{profileAnalysis.riskScore}/100</div>
+                      </div>
+                    </div>
+                    <div className="mt-4">
+                      <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div 
+                          className={`h-3 rounded-full ${
+                            profileAnalysis.riskScore <= 30 ? 'bg-green-500' :
+                            profileAnalysis.riskScore <= 60 ? 'bg-yellow-500' :
+                            profileAnalysis.riskScore <= 80 ? 'bg-orange-500' : 'bg-red-500'
+                          }`}
+                          style={{ width: `${profileAnalysis.riskScore}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Investment Strategy */}
+                  <div className="bg-white rounded-xl shadow-lg p-6">
+                    <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                      <TrendingUp className="w-6 h-6 text-green-600 mr-2" />
+                      Recommended Investment Strategy
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="text-center">
+                        <div className="text-4xl font-bold text-blue-600 mb-2">{profileAnalysis.investmentStrategy.equity}%</div>
+                        <div className="text-sm text-gray-600">Equity</div>
+                        <div className="text-xs text-gray-500 mt-1">Stocks & Equity Funds</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-4xl font-bold text-green-600 mb-2">{profileAnalysis.investmentStrategy.debt}%</div>
+                        <div className="text-sm text-gray-600">Debt</div>
+                        <div className="text-xs text-gray-500 mt-1">Bonds & Debt Funds</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-4xl font-bold text-yellow-600 mb-2">{profileAnalysis.investmentStrategy.gold}%</div>
+                        <div className="text-sm text-gray-600">Gold</div>
+                        <div className="text-xs text-gray-500 mt-1">Gold & Commodities</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Personalized Recommendations */}
+                  <div className="bg-white rounded-xl shadow-lg p-6">
+                    <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                      <Brain className="w-6 h-6 text-purple-600 mr-2" />
+                      AI-Powered Recommendations
+                    </h3>
+                    <div className="space-y-4">
+                      {profileAnalysis.recommendations.map((rec, index) => (
+                        <div key={index} className={`p-4 rounded-lg border-l-4 ${
+                          rec.priority === 'high' ? 'border-red-500 bg-red-50' :
+                          rec.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
+                          'border-blue-500 bg-blue-50'
+                        }`}>
+                          <div className="flex items-start space-x-3">
+                            <div className={`w-2 h-2 rounded-full mt-2 ${
+                              rec.priority === 'high' ? 'bg-red-500' :
+                              rec.priority === 'medium' ? 'bg-yellow-500' : 'bg-blue-500'
+                            }`}></div>
+                            <div>
+                              <h4 className="font-semibold text-gray-900">{rec.title}</h4>
+                              <p className="text-sm text-gray-600 mt-1">{rec.description}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Goals Summary */}
+                  <div className="bg-white rounded-xl shadow-lg p-6">
+                    <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                      <Target className="w-6 h-6 text-indigo-600 mr-2" />
+                      Your Financial Goals
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div>
+                        <div className="text-sm text-gray-600 mb-2">Primary Goal</div>
+                        <div className="font-medium text-gray-900">{profileAnalysis.goals.primary}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-600 mb-2">Time Horizon</div>
+                        <div className="font-medium text-gray-900">{profileAnalysis.goals.timeHorizon}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-600 mb-2">Monthly Investment</div>
+                        <div className="font-medium text-gray-900">{profileAnalysis.goals.monthlyInvestment}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Experience Level */}
+                  <div className="bg-white rounded-xl shadow-lg p-6">
+                    <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                      <Award className="w-6 h-6 text-yellow-600 mr-2" />
+                      Investment Experience
+                    </h3>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-gray-900 mb-2">{profileAnalysis.experience}</div>
+                      <div className="text-sm text-gray-600">Based on your profile responses</div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+                  <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Complete Your Profile</h3>
+                  <p className="text-gray-600 mb-6">
+                    Answer 20 questions to get personalized financial analysis and recommendations.
+                  </p>
+                  <button
+                    onClick={() => window.location.href = '/profile'}
+                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Complete Profile
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Chatbot Tab */}
+          {activeTab === 'chatbot' && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-xl shadow-lg p-6">
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Bot className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">AI Financial Assistant</h3>
+                    <p className="text-sm text-gray-600">Get personalized financial advice and insights</p>
+                  </div>
+                </div>
+
+                {/* Chat Interface */}
+                <div className="bg-gray-50 rounded-lg h-96 flex flex-col">
+                  {/* Chat Messages */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                    {chatMessages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                            message.type === 'user'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-white text-gray-900 border border-gray-200'
+                          }`}
+                        >
+                          <p className="text-sm">{message.message}</p>
+                          <p className={`text-xs mt-1 ${
+                            message.type === 'user' ? 'text-blue-100' : 'text-gray-500'
+                          }`}>
+                            {message.timestamp.toLocaleTimeString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Typing Indicator */}
+                    {isTyping && (
+                      <div className="flex justify-start">
+                        <div className="bg-white text-gray-900 border border-gray-200 px-4 py-2 rounded-lg">
+                          <div className="flex space-x-1">
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Chat Input */}
+                  <div className="border-t border-gray-200 p-4">
+                    <div className="flex space-x-2">
+                      <input
+                        type="text"
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                        placeholder="Ask me anything about your finances..."
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={!chatInput.trim()}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <MessageCircle className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Actions */}
+                <div className="mt-6">
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Quick Questions</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      "How can I improve my savings?",
+                      "What should I invest in?",
+                      "Is my portfolio balanced?",
+                      "How much should I save for retirement?"
+                    ].map((question, index) => (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          setChatInput(question);
+                          handleSendMessage();
+                        }}
+                        className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-full transition-colors"
+                      >
+                        {question}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Videos Tab */}
           {activeTab === 'videos' && (
             <div className="space-y-6">
@@ -650,6 +1118,153 @@ const SuperComplete = () => {
           {/* AI Advisor Tab */}
           {activeTab === 'advisor' && (
             <div className="space-y-6">
+              {/* Stock Prediction Section */}
+              <div className="bg-white rounded-xl shadow-lg p-6">
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">AI Stock Predictions</h3>
+                    <p className="text-sm text-gray-600">Get AI-powered stock analysis and predictions</p>
+                  </div>
+                </div>
+
+                {/* Stock Selection */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Select Stock</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {popularStocks.map((stock) => (
+                        <button
+                          key={stock.symbol}
+                          onClick={() => setSelectedStock(stock.symbol)}
+                          className={`p-3 rounded-lg border-2 text-left transition-all ${
+                            selectedStock === stock.symbol
+                              ? 'border-purple-500 bg-purple-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <div className="font-semibold text-sm">{stock.symbol}</div>
+                          <div className="text-xs text-gray-600">{stock.name}</div>
+                          <div className="text-xs text-gray-500">{stock.sector}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Prediction Timeframe</label>
+                    <div className="flex space-x-2">
+                      {[
+                        { value: '1W', label: '1 Week' },
+                        { value: '1M', label: '1 Month' },
+                        { value: '3M', label: '3 Months' },
+                        { value: '6M', label: '6 Months' }
+                      ].map((timeframe) => (
+                        <button
+                          key={timeframe.value}
+                          onClick={() => setPredictionTimeframe(timeframe.value)}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                            predictionTimeframe === timeframe.value
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          {timeframe.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={() => selectedStock && generateStockPrediction(selectedStock, predictionTimeframe)}
+                      disabled={!selectedStock || isAnalyzing}
+                      className="w-full mt-4 bg-purple-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
+                    >
+                      {isAnalyzing ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                          <span>Analyzing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <TrendingUp className="w-5 h-5" />
+                          <span>Get AI Prediction</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Stock Predictions Display */}
+                {stockPredictions.length > 0 && (
+                  <div className="space-y-4">
+                    <h4 className="text-lg font-semibold text-gray-900">Recent Predictions</h4>
+                    {stockPredictions.map((prediction, index) => (
+                      <div key={index} className="bg-gray-50 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-3">
+                            <div className="font-bold text-lg">{prediction.symbol}</div>
+                            <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              prediction.trend === 'Bullish' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {prediction.trend}
+                            </div>
+                            <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              prediction.riskLevel === 'Low' 
+                                ? 'bg-green-100 text-green-800' 
+                                : prediction.riskLevel === 'Medium'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {prediction.riskLevel} Risk
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm text-gray-600">Confidence: {prediction.confidence}%</div>
+                            <div className="text-xs text-gray-500">{prediction.timeframe}</div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                          <div className="text-center">
+                            <div className="text-sm text-gray-600">Current Price</div>
+                            <div className="font-bold text-lg">${prediction.currentPrice.toFixed(2)}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm text-gray-600">Predicted Price</div>
+                            <div className="font-bold text-lg">${prediction.predictedPrice.toFixed(2)}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm text-gray-600">Recommendation</div>
+                            <div className={`font-bold text-lg ${
+                              prediction.recommendation === 'BUY' ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {prediction.recommendation}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="text-sm font-medium text-gray-700">AI Analysis:</div>
+                          <ul className="text-sm text-gray-600 space-y-1">
+                            {prediction.analysis.map((item, idx) => (
+                              <li key={idx} className="flex items-start space-x-2">
+                                <span className="text-purple-500 mt-1">•</span>
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* General Financial Advice */}
               <div className="bg-white rounded-xl shadow-lg p-6">
                 <h3 className="text-xl font-bold text-gray-900 mb-6">AI Financial Advisor</h3>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -779,11 +1394,11 @@ const SuperComplete = () => {
       {/* Floating Action Buttons */}
       <div className="fixed bottom-6 right-6 space-y-3 z-40">
         <button 
-          onClick={() => handleQuickAction('chatbot')}
+          onClick={() => setActiveTab('chatbot')}
           className="bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-colors"
-          title="AI Assistant"
+          title="AI Chat"
         >
-          <Bot className="w-6 h-6" />
+          <MessageCircle className="w-6 h-6" />
         </button>
         <button 
           onClick={() => handleQuickAction('advisor')}

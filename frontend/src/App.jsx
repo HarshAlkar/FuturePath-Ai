@@ -7,7 +7,7 @@ import Goals from './pages/Goals'
 import Insights from './pages/Insights'
 import Investment from './pages/Investment'
 import GoldDashboard from './pages/GoldDashboard'
-import IndianGoldDashboard from './pages/IndianGoldDashboard'
+import GoldBuyingPage from './pages/GoldBuyingPage'
 import SuperComplete from './pages/SuperComplete'
 import Profile from './pages/Profile'
 import Settings from './pages/Settings'
@@ -36,7 +36,7 @@ function App() {
         <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
         <Route path="/investment" element={<ProtectedRoute><Investment /></ProtectedRoute>} />
         <Route path="/gold-dashboard" element={<ProtectedRoute><GoldDashboard /></ProtectedRoute>} />
-        <Route path="/indian-gold-dashboard" element={<ProtectedRoute><IndianGoldDashboard /></ProtectedRoute>} />
+        <Route path="/gold-buy" element={<ProtectedRoute><GoldBuyingPage /></ProtectedRoute>} />
         <Route path="/super-complete" element={<ProtectedRoute><SuperComplete /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

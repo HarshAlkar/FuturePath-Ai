@@ -5,31 +5,12 @@ import authService from '../services/authService';
 
 const MainDashboardNavbar = () => {
   const [user, setUser] = useState(null);
-  const [greeting, setGreeting] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
     // Get current user data
     const currentUser = authService.getStoredUser();
     setUser(currentUser);
-
-    // Set greeting based on time of day
-    const getGreeting = () => {
-      const hour = new Date().getHours();
-      if (hour < 12) return 'Good morning';
-      if (hour < 17) return 'Good afternoon';
-      if (hour < 21) return 'Good evening';
-      return 'Good night';
-    };
-
-    setGreeting(getGreeting());
-
-    // Update greeting every minute
-    const interval = setInterval(() => {
-      setGreeting(getGreeting());
-    }, 60000);
-
-    return () => clearInterval(interval);
   }, []);
 
   const handleLogout = () => {
@@ -85,7 +66,7 @@ const MainDashboardNavbar = () => {
             <User className="w-5 h-5 text-gray-600" />
             <div className="text-right">
               <div className="text-sm font-medium text-gray-900">
-                {greeting}, {user?.name || 'User'}
+                {user?.name || 'User'}
               </div>
               <div className="text-xs text-gray-500">Premium Member</div>
             </div>

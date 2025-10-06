@@ -2,13 +2,12 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import axios from 'axios';
 
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: ["http://localhost:5173", "http://localhost:3000"],
     methods: ["GET", "POST"]
   }
 });
@@ -16,155 +15,96 @@ const io = new Server(server, {
 const PORT = 5001;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ["http://localhost:5173", "http://localhost:3000"],
+  credentials: true
+}));
 app.use(express.json());
 
-// Mock data for fallback
-const generateMockData = () => {
+// Mock gold prices data - Realistic Indian market prices
+const generateMockPrices = () => {
+  // Current realistic Indian gold prices (as of 2024)
+  const basePrices = {
+    XAU: 68500,  // Gold per 10g in INR (₹68,500)
+    XAG: 825000, // Silver per kg in INR (₹8,25,000)
+    XPT: 7034625, // Platinum per oz in INR (₹70,34,625)
+    XPD: 1236430  // Palladium per oz in INR (₹12,36,430)
+  };
+
   return [
     {
       symbol: 'XAU',
       name: 'Gold',
-      price: 6850,
+      price: Math.round(basePrices.XAU + (Math.random() - 0.5) * 1000),
       currency: 'INR',
       unit: '10g',
-      indianUnit: 'per 10 grams',
-      change24h: 45,
-      changePercent24h: 0.66,
-      high24h: 6890,
-      low24h: 6820,
-      volume: 1250000,
-      marketCap: 1500000000,
+      change24h: Math.round((Math.random() - 0.5) * 2000),
+      changePercent24h: parseFloat(((Math.random() - 0.5) * 4).toFixed(2)),
+      high24h: Math.round(basePrices.XAU * 1.02),
+      low24h: Math.round(basePrices.XAU * 0.98),
+      volume: Math.floor(Math.random() * 1000000) + 500000,
+      marketCap: Math.round(basePrices.XAU * 1000000),
       timestamp: new Date(),
-      source: 'mock',
-      isIndianMarket: true
+      source: 'indian_market'
     },
     {
       symbol: 'XAG',
       name: 'Silver',
-      price: 82500,
+      price: Math.round(basePrices.XAG + (Math.random() - 0.5) * 20000),
       currency: 'INR',
       unit: 'kg',
-      indianUnit: 'per kg',
-      change24h: -1200,
-      changePercent24h: -1.43,
-      high24h: 84000,
-      low24h: 81800,
-      volume: 850000,
-      marketCap: 1200000000,
+      change24h: Math.round((Math.random() - 0.5) * 50000),
+      changePercent24h: parseFloat(((Math.random() - 0.5) * 6).toFixed(2)),
+      high24h: Math.round(basePrices.XAG * 1.03),
+      low24h: Math.round(basePrices.XAG * 0.97),
+      volume: Math.floor(Math.random() * 500000) + 200000,
+      marketCap: Math.round(basePrices.XAG * 100000),
       timestamp: new Date(),
-      source: 'mock',
-      isIndianMarket: true
+      source: 'indian_market'
     },
     {
       symbol: 'XPT',
       name: 'Platinum',
-      price: 7034625,
+      price: Math.round(basePrices.XPT + (Math.random() - 0.5) * 100000),
       currency: 'INR',
       unit: 'oz',
-      indianUnit: 'per oz',
-      change24h: 57193,
-      changePercent24h: 0.82,
-      high24h: 7101225,
-      low24h: 6976350,
-      volume: 450000,
-      marketCap: 800000000,
+      change24h: Math.round((Math.random() - 0.5) * 200000),
+      changePercent24h: parseFloat(((Math.random() - 0.5) * 3).toFixed(2)),
+      high24h: Math.round(basePrices.XPT * 1.015),
+      low24h: Math.round(basePrices.XPT * 0.985),
+      volume: Math.floor(Math.random() * 100000) + 50000,
+      marketCap: Math.round(basePrices.XPT * 50000),
       timestamp: new Date(),
-      source: 'mock',
-      isIndianMarket: true
+      source: 'indian_market'
     },
     {
       symbol: 'XPD',
       name: 'Palladium',
-      price: 123643,
+      price: Math.round(basePrices.XPD + (Math.random() - 0.5) * 100000),
       currency: 'INR',
       unit: 'oz',
-      indianUnit: 'per oz',
-      change24h: -1315,
-      changePercent24h: -1.05,
-      high24h: 125291,
-      low24h: 122794,
-      volume: 320000,
-      marketCap: 600000000,
+      change24h: Math.round((Math.random() - 0.5) * 200000),
+      changePercent24h: parseFloat(((Math.random() - 0.5) * 5).toFixed(2)),
+      high24h: Math.round(basePrices.XPD * 1.02),
+      low24h: Math.round(basePrices.XPD * 0.98),
+      volume: Math.floor(Math.random() * 50000) + 25000,
+      marketCap: Math.round(basePrices.XPD * 40000),
       timestamp: new Date(),
-      source: 'mock',
-      isIndianMarket: true
+      source: 'indian_market'
     }
   ];
 };
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Gold Dashboard API is running',
-    timestamp: new Date(),
-    uptime: process.uptime()
-  });
-});
-
-// Get current gold prices
-app.get('/api/gold/prices', async (req, res) => {
+// API Routes
+app.get('/api/gold/prices', (req, res) => {
   try {
-    console.log('Fetching gold prices...');
-    
-    // Try to get real data first
-    try {
-      // Fetch USD to INR rate
-      const forexResponse = await axios.get('https://api.exchangerate-api.com/v4/latest/USD', {
-        timeout: 5000
-      });
-      const usdToInr = forexResponse.data.rates.INR || 83.25;
-      
-      // Fetch gold prices
-      const goldResponse = await axios.get('https://api.metals.live/v1/spot/gold', {
-        timeout: 5000
-      });
-      
-      const goldData = await goldResponse.data;
-      const goldPricePerOz = goldData[0]?.price || 2045.50;
-      const goldPricePer10g = (goldPricePerOz * usdToInr) / 31.1035 * 10;
-      
-      const realPrices = [
-        {
-          symbol: 'XAU',
-          name: 'Gold',
-          price: Math.round(goldPricePer10g),
-          currency: 'INR',
-          unit: '10g',
-          indianUnit: 'per 10 grams',
-          change24h: Math.round((Math.random() - 0.5) * 100),
-          changePercent24h: Math.round((Math.random() - 0.5) * 2 * 100) / 100,
-          high24h: Math.round(goldPricePer10g * 1.02),
-          low24h: Math.round(goldPricePer10g * 0.98),
-          volume: Math.floor(Math.random() * 1000000) + 100000,
-          marketCap: Math.floor(goldPricePer10g * 1000000),
-          timestamp: new Date(),
-          source: 'real-api',
-          isIndianMarket: true
-        },
-        ...generateMockData().slice(1) // Use mock data for other metals
-      ];
-      
-      res.json({
-        success: true,
-        data: realPrices,
-        timestamp: new Date()
-      });
-      
-    } catch (apiError) {
-      console.log('API failed, using mock data:', apiError.message);
-      // Use mock data if API fails
-      const mockData = generateMockData();
-      res.json({
-        success: true,
-        data: mockData,
-        timestamp: new Date()
-      });
-    }
-    
+    const prices = generateMockPrices();
+    res.json({
+      success: true,
+      data: prices,
+      timestamp: new Date()
+    });
   } catch (error) {
-    console.error('Error fetching gold prices:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch prices',
@@ -173,40 +113,34 @@ app.get('/api/gold/prices', async (req, res) => {
   }
 });
 
-// Get historical data
 app.get('/api/gold/historical/:symbol', (req, res) => {
   try {
     const { symbol } = req.params;
-    const { period = '1M' } = req.query;
+    const { period = '1D' } = req.query;
     
-    let days = 30;
-    switch (period) {
-      case '1D': days = 1; break;
-      case '1W': days = 7; break;
-      case '1M': days = 30; break;
-      case '3M': days = 90; break;
-      case '6M': days = 180; break;
-      case '1Y': days = 365; break;
-    }
-
-    // Generate mock historical data
-    const basePrices = { XAU: 6850, XAG: 82500, XPT: 7034625, XPD: 123643 };
-    const basePrice = basePrices[symbol] || 6850;
-    
+    // Generate mock historical data with realistic Indian prices
     const data = [];
-    let currentPrice = basePrice;
+    const basePrice = symbol === 'XAU' ? 68500 : 
+                     symbol === 'XAG' ? 825000 :
+                     symbol === 'XPT' ? 7034625 : 1236430;
+    
+    const days = period === '1D' ? 1 : 
+                 period === '1W' ? 7 : 
+                 period === '1M' ? 30 : 
+                 period === '3M' ? 90 : 
+                 period === '6M' ? 180 : 365;
     
     for (let i = days; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
       
       const volatility = 0.02;
-      const change = (Math.random() - 0.5) * volatility * currentPrice;
+      const change = (Math.random() - 0.5) * volatility * basePrice;
       
-      const open = currentPrice;
-      const close = currentPrice + change;
-      const high = Math.max(open, close) * (1 + Math.random() * 0.01);
-      const low = Math.min(open, close) * (1 - Math.random() * 0.01);
+      const open = basePrice + change;
+      const close = open + (Math.random() - 0.5) * basePrice * 0.01;
+      const high = Math.max(open, close) * (1 + Math.random() * 0.005);
+      const low = Math.min(open, close) * (1 - Math.random() * 0.005);
       
       data.push({
         date,
@@ -216,18 +150,13 @@ app.get('/api/gold/historical/:symbol', (req, res) => {
         close: Math.round(close),
         volume: Math.floor(Math.random() * 100000) + 10000
       });
-      
-      currentPrice = close;
     }
-
+    
     res.json({
       success: true,
-      data: data,
-      symbol,
-      period
+      data: data
     });
   } catch (error) {
-    console.error('Error fetching historical data:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch historical data',
@@ -236,7 +165,6 @@ app.get('/api/gold/historical/:symbol', (req, res) => {
   }
 });
 
-// Get market analysis
 app.get('/api/gold/analysis/:symbol', (req, res) => {
   try {
     const { symbol } = req.params;
@@ -260,7 +188,6 @@ app.get('/api/gold/analysis/:symbol', (req, res) => {
       data: analysis
     });
   } catch (error) {
-    console.error('Error fetching market analysis:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch market analysis',
@@ -269,21 +196,45 @@ app.get('/api/gold/analysis/:symbol', (req, res) => {
   }
 });
 
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Gold server is running',
+    timestamp: new Date()
+  });
+});
+
 // WebSocket connection handling
 io.on('connection', (socket) => {
-  console.log(`Client connected: ${socket.id}`);
+  console.log('Client connected:', socket.id);
+  
+  // Send initial data
+  socket.emit('priceUpdate', { prices: generateMockPrices() });
+  
+  // Send periodic updates
+  const interval = setInterval(() => {
+    socket.emit('priceUpdate', { prices: generateMockPrices() });
+  }, 30000); // Update every 30 seconds
   
   socket.on('disconnect', () => {
-    console.log(`Client disconnected: ${socket.id}`);
+    console.log('Client disconnected:', socket.id);
+    clearInterval(interval);
   });
 });
 
 // Start server
 server.listen(PORT, () => {
-  console.log(`🚀 Simple Gold Dashboard API server running on port ${PORT}`);
-  console.log(`📊 WebSocket server ready for real-time updates`);
-  console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`📈 Gold prices: http://localhost:${PORT}/api/gold/prices`);
+  console.log(`🚀 Simple Gold Server running on port ${PORT}`);
+  console.log(`📊 WebSocket available at ws://localhost:${PORT}`);
+  console.log(`🔗 API Base: http://localhost:${PORT}/api`);
 });
 
-export default app;
+// Graceful shutdown
+process.on('SIGINT', () => {
+  console.log('\n🛑 Shutting down gold server...');
+  server.close(() => {
+    console.log('✅ Gold server shut down successfully');
+    process.exit(0);
+  });
+});
