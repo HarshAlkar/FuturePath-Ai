@@ -36,12 +36,23 @@ export const authAPI = {
 
   async signup(userData) {
     try {
-      const response = await fetch(`${baseURL}/api/register`, {
+      // Transform frontend data to backend format
+      const backendData = {
+        email: userData.email,
+        phone: userData.phone || '1234567890', // Default phone if not provided
+        password: userData.password,
+        firstName: userData.name?.split(' ')[0] || userData.firstName || 'User',
+        lastName: userData.name?.split(' ')[1] || userData.lastName || 'User',
+        dateOfBirth: userData.dateOfBirth || '1990-01-01', // Default date if not provided
+        panNumber: userData.panNumber || 'ABCDE1234F' // Default PAN if not provided
+      };
+
+      const response = await fetch(`${baseURL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(userData),
+        body: JSON.stringify(backendData),
       });
 
       const data = await response.json();
