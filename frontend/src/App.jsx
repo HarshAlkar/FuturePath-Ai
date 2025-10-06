@@ -1,5 +1,6 @@
 import React from 'react'
 import { Routes, Route } from 'react-router-dom'
+import './debug.js' // Debug environment variables
 import LandingPage from './LandingPage/LandingPage'
 import MainDashboard from './pages/main_dashboard'
 import ExpenseTracker from './pages/Expense_tracker'
