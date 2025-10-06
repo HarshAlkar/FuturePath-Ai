@@ -699,6 +699,16 @@ app.use((error, req, res, next) => {
   });
 });
 
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'FuturePath AI Server is running',
+    timestamp: new Date(),
+    version: '1.0.0'
+  });
+});
+
 // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
@@ -718,16 +728,6 @@ server.listen(PORT, () => {
   console.log(`📊 WebSocket available at ws://localhost:${PORT}`);
   console.log(`🔗 API Base: http://localhost:${PORT}/api`);
   console.log(`📈 Health Check: http://localhost:${PORT}/api/health`);
-});
-
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'FuturePath AI Server is running',
-    timestamp: new Date(),
-    version: '1.0.0'
-  });
 });
 
 // Graceful shutdown
