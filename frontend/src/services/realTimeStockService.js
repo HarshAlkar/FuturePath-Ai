@@ -239,7 +239,7 @@ class RealTimeStockService {
   async fetchPriceData(symbols) {
     try {
       const token = getAuthToken();
-      const response = await fetch('http://localhost:5000/api/stocks/prices', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/stocks/prices`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -267,7 +267,7 @@ class RealTimeStockService {
   async fetchMarketNews() {
     try {
       const token = getAuthToken();
-      const response = await fetch('http://localhost:5000/api/market/news', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/market/news`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         }
@@ -290,7 +290,7 @@ class RealTimeStockService {
   async fetchPortfolioPerformance(portfolio) {
     try {
       const token = getAuthToken();
-      const response = await fetch('http://localhost:5000/api/portfolio/performance', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/portfolio/performance`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
