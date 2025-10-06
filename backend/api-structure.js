@@ -699,6 +699,32 @@ app.use((error, req, res, next) => {
   });
 });
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'FuturePath AI Server is running',
+    timestamp: new Date(),
+    version: '1.0.0'
+  });
+});
+
+// API root endpoint
+app.get('/api', (req, res) => {
+  res.json({
+    success: true,
+    message: 'FuturePath AI API is running',
+    timestamp: new Date(),
+    version: '1.0.0',
+    endpoints: [
+      '/api/health',
+      '/api/user/profile',
+      '/api/market/stocks',
+      '/api/trading/orders'
+    ]
+  });
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
