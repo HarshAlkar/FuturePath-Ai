@@ -4,7 +4,7 @@ const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 export const authAPI = {
   async login(credentials) {
     try {
-      const response = await fetch(`${baseURL}/api/login`, {
+      const response = await fetch(`${baseURL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -27,6 +27,7 @@ export const authAPI = {
         };
       }
     } catch (error) {
+      console.error('Login error:', error);
       return {
         success: false,
         message: 'Network error. Please try again.'
@@ -73,10 +74,39 @@ export const authAPI = {
         };
       }
     } catch (error) {
+      console.error('Signup error:', error);
       return {
         success: false,
         message: 'Network error. Please try again.'
       };
+    }
+  },
+
+  async getCurrentUser() {
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        return null;
+      }
+
+      const response = await fetch(`${baseURL}/api/user/profile`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        return data.user;
+      } else {
+        return null;
+      }
+    } catch (error) {
+      console.error('Get current user error:', error);
+      return null;
     }
   }
 };
