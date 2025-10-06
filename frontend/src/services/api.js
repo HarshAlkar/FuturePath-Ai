@@ -47,6 +47,9 @@ export const authAPI = {
         panNumber: userData.panNumber || 'ABCDE1234F' // Default PAN if not provided
       };
 
+      console.log('Original data:', userData);
+      console.log('Transformed data:', backendData);
+
       const response = await fetch(`${baseURL}/api/auth/register`, {
         method: 'POST',
         headers: {
